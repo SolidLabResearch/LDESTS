@@ -1,21 +1,17 @@
-import be.ugent.idlab.predict.ldests.LDESTS
-import kotlinx.coroutines.await
+import be.ugent.idlab.predict.ldests.remote.Queries
+import be.ugent.idlab.predict.ldests.remote.query
+import be.ugent.idlab.predict.ldests.solid.SolidConnection
 
-const val url  = "https://fragments.dbpedia.org/2015/en"
-
-@ExperimentalJsExport
-@JsExport
-object Test {
-
-    fun createTestLDES() = promiseRun {
-        LDESTS.fromUrl(url)
-    }
-
-}
-
-@OptIn(ExperimentalJsExport::class)
 suspend fun main() {
-    console.log("Testing the LDESTS implementation!")
-    val ldests = Test.createTestLDES().await()
-    console.log("Created the LDESTS stream: $ldests")
+    console.log("Attempting to connect with the Solid pod...")
+    val conn = SolidConnection(url = "https://pod.playground.solidlab.be/") {
+        rootDir = ""
+    }
+    query(
+        url = "https://pod.playground.solidlab.be/",
+        query = Queries.SPARQL_GET_ALL(limit = 5)
+    ) {
+        println("Received ${it.s}, ${it.p}, ${it.o}!")
+    }
+//    console.log("Found files ${conn.open()?.getFiles()}")
 }

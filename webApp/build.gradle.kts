@@ -10,7 +10,11 @@ val copyJsResources = tasks.create("copyJsResourcesWorkaround", Copy::class.java
 
 afterEvaluate {
     project.tasks.getByName("jsProcessResources").finalizedBy(copyJsResources)
+    copyJsResources.dependsOn(project.tasks.getByName("jsDevelopmentLibraryCompileSync"))
     copyJsResources.dependsOn(project.tasks.getByName("jsProductionLibraryCompileSync"))
+
+//    project.tasks.getByName("jsNodeRun").dependsOn(project.tasks.getByName("jsDevelopmentLibraryCompileSync"))
+    project.tasks.getByName("jsNodeRun").dependsOn(project.tasks.getByName("jsProductionLibraryCompileSync"))
 }
 
 kotlin {
