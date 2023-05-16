@@ -1,17 +1,22 @@
-import be.ugent.idlab.predict.ldests.remote.Queries
-import be.ugent.idlab.predict.ldests.remote.query
+import be.ugent.idlab.predict.ldests.log
 import be.ugent.idlab.predict.ldests.solid.SolidConnection
+import be.ugent.idlab.predict.ldests.solid.string
+
+object Main {
+
+    // running main in an object, so the logging func is available
+    suspend fun main() {
+        log("Attempting to connect with the Solid pod...")
+        val conn = SolidConnection(url = "https://pod.playground.solidlab.be/")
+        log("Found files ${conn.root.files.await().string()}")
+        log("Found directories ${conn.root.directories.await().string()}")
+        // opening the last directory, if any
+        val dir = conn.root.directories.await().lastOrNull()
+        log("Found even more files ${dir?.files?.await()?.string()}")
+    }
+
+}
 
 suspend fun main() {
-    console.log("Attempting to connect with the Solid pod...")
-    val conn = SolidConnection(url = "https://pod.playground.solidlab.be/") {
-        rootDir = ""
-    }
-    query(
-        url = "https://pod.playground.solidlab.be/",
-        query = Queries.SPARQL_GET_ALL(limit = 5)
-    ) {
-        println("Received ${it.s}, ${it.p}, ${it.o}!")
-    }
-//    console.log("Found files ${conn.open()?.getFiles()}")
+    Main.main()
 }

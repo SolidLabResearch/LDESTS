@@ -8,6 +8,8 @@ interface Triple {
 
 object Queries {
 
+    const val SPARQL_GET_ALL = "SELECT * WHERE { ?s ?p ?o }"
+
     fun SPARQL_GET_ALL(limit: Int) = "SELECT * WHERE { ?s ?p ?o } LIMIT $limit"
 
 }
