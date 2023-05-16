@@ -38,3 +38,49 @@ expect inline fun <reified T> T.log(text: String)
 expect inline fun <reified T> T.warn(text: String)
 
 expect inline fun <reified T> T.error(text: String)
+
+
+fun Throwable.formatted(): List<String> {
+    val msg = message ?: return listOf()
+    fun String.shorten(length: Int): String {
+        return if (this.length > length) {
+            substring(0, length - 3) + "..."
+        } else {
+            this
+        }
+    }
+    return msg.split("\n")
+        .map { it.trim().shorten(128) }
+        .filter { it.isNotBlank() }
+}
+
+inline fun <reified T> T.warn(throwable: Throwable) {
+    val f = throwable.formatted()
+    when (f.size) {
+        0 -> warn("No message provided")
+        1 -> warn(f.first())
+        else -> {
+            warn("┏ ${f.first()}")
+            for (i in 1 until f.size - 1) {
+                warn("┃ ${f[i]}")
+            }
+            warn("┗ ${f.last()}")
+        }
+    }
+}
+
+
+inline fun <reified T> T.error(throwable: Throwable) {
+    val f = throwable.formatted()
+    when (f.size) {
+        0 -> error("No message provided")
+        1 -> error(f.first())
+        else -> {
+            error("┏ ${f.first()}")
+            for (i in 1 until f.size - 1) {
+                error("┃ ${f[i]}")
+            }
+            error("┗ ${f.last()}")
+        }
+    }
+}

@@ -1,3 +1,4 @@
+
 import be.ugent.idlab.predict.ldests.log
 import be.ugent.idlab.predict.ldests.solid.SolidConnection
 import be.ugent.idlab.predict.ldests.solid.string
@@ -8,11 +9,17 @@ object Main {
     suspend fun main() {
         log("Attempting to connect with the Solid pod...")
         val conn = SolidConnection(url = "https://pod.playground.solidlab.be/")
-        log("Found files ${conn.root.files.await().string()}")
-        log("Found directories ${conn.root.directories.await().string()}")
+        log("Found files ${conn.root.files().string()}")
+        log("Found directories ${conn.root.directories().string()}")
+        // refreshing
+        conn.root.refresh()
+        log("Found files again ${conn.root.files().string()}")
         // opening the last directory, if any
-        val dir = conn.root.directories.await().lastOrNull()
-        log("Found even more files ${dir?.files?.await()?.string()}")
+        log("Reading the first file: ${conn.root.files().first().content().string()}")
+        log("Reading the last file: ${conn.root.files().last().content().string()}")
+        val dir = conn.root.directories().lastOrNull()
+        log("Found even more files ${dir?.files()?.string()}")
+        conn.close()
     }
 
 }
