@@ -1,26 +1,20 @@
-package be.ugent.idlab.predict.ldests.remote
+package be.ugent.idlab.predict.ldests.rdf
 
 import be.ugent.idlab.predict.ldests.log
 import be.ugent.idlab.predict.ldests.warn
-
-interface Triple {
-    val s: String
-    val p: String
-    val o: String
-}
-
-object Queries {
-
-    const val SPARQL_GET_ALL = "SELECT * WHERE { ?s ?p ?o }"
-
-    fun SPARQL_GET_ALL(limit: Int) = "SELECT * WHERE { ?s ?p ?o } LIMIT $limit"
-
-}
 
 internal expect suspend fun query(query: String, url: String, onValueReceived: (Triple) -> Unit)
 
 // collection of helper methods using the query method from above to collect the query result in various ways
 object Query {
+
+    object SPARQL {
+
+        const val GET_ALL = "SELECT * WHERE { ?s ?p ?o }"
+
+        fun GET_ALL(limit: Int) = "SELECT * WHERE { ?s ?p ?o } LIMIT $limit"
+
+    }
 
     suspend fun queryCatching(query: String, url: String): List<Triple> {
         log("Querying '$url'")

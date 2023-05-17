@@ -1,6 +1,6 @@
 package be.ugent.idlab.predict.ldests.solid
 
-import be.ugent.idlab.predict.ldests.remote.Triple
+import be.ugent.idlab.predict.ldests.rdf.Triple
 
 
 // connection helpers
@@ -25,5 +25,5 @@ fun Collection<SolidConnection.Resource>.string(cap: Int = 3): String {
 }
 
 fun Collection<Triple>.string(cap: Int = 2): String {
-    return string(cap = cap) { "${it.s} - ${it.p} - ${it.o}" }
+    return string(cap = cap) { "${it.subject.value} - ${it.predicate.value} - ${it.`object`.value}" }
 }

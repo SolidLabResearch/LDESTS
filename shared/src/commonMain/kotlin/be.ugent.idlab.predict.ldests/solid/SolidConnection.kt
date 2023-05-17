@@ -2,13 +2,12 @@ package be.ugent.idlab.predict.ldests.solid
 
 import be.ugent.idlab.predict.ldests.lazy
 import be.ugent.idlab.predict.ldests.log
-import be.ugent.idlab.predict.ldests.rdf.TripleUtil.LDP.isDirectory
-import be.ugent.idlab.predict.ldests.rdf.TripleUtil.LDP.isFile
-import be.ugent.idlab.predict.ldests.rdf.TripleUtil.RDF.types
-import be.ugent.idlab.predict.ldests.rdf.TripleUtil.group
-import be.ugent.idlab.predict.ldests.remote.Queries
-import be.ugent.idlab.predict.ldests.remote.Query
-import be.ugent.idlab.predict.ldests.remote.Triple
+import be.ugent.idlab.predict.ldests.rdf.Ontologies.LDP.isDirectory
+import be.ugent.idlab.predict.ldests.rdf.Ontologies.LDP.isFile
+import be.ugent.idlab.predict.ldests.rdf.Ontologies.RDF.types
+import be.ugent.idlab.predict.ldests.rdf.Ontologies.group
+import be.ugent.idlab.predict.ldests.rdf.Query
+import be.ugent.idlab.predict.ldests.rdf.Triple
 import kotlinx.coroutines.*
 
 class SolidConnection private constructor(
@@ -28,9 +27,9 @@ class SolidConnection private constructor(
         val path: String
     ) {
 
-        protected var data = connection.scope.lazy {
+        var data = connection.scope.lazy {
             // getting all the triples, so files/directories can be extracted from it
-            Query.queryCatching(Queries.SPARQL_GET_ALL, connection.url + path)
+            Query.queryCatching(Query.SPARQL.GET_ALL, connection.url + path)
         }
         private set
 
@@ -38,7 +37,7 @@ class SolidConnection private constructor(
             // resetting the deferred call
             data = connection.scope.lazy {
                 // getting all the triples, so files/directories can be extracted from it
-                Query.queryCatching(Queries.SPARQL_GET_ALL, connection.url + path)
+                Query.queryCatching(Query.SPARQL.GET_ALL, connection.url + path)
             }
         }
 
@@ -55,7 +54,7 @@ class SolidConnection private constructor(
                 if (it.types().isFile()) {
                     // the subject represent the location, and should be the same for every triple through the grouping
                     //  action from data
-                    result.add(File(it.first().s.removePrefix(url)))
+                    result.add(File(it.first().subject.value.removePrefix(url)))
                 }
             }
             result
@@ -66,13 +65,13 @@ class SolidConnection private constructor(
             val result = mutableListOf<Directory>()
             data.await().group().forEach {
                 // skip this entry if it is this path
-                if (it.first().s.removePrefix(url) == path) {
+                if (it.first().subject.value.removePrefix(url) == path) {
                     return@forEach
                 }
                 if (it.types().isDirectory()) {
                     // the subject represent the location, and should be the same for every triple through the grouping
                     //  action from data
-                    result.add(Directory(it.first().s.removePrefix(url)))
+                    result.add(Directory(it.first().subject.value.removePrefix(url)))
                 }
             }
             result

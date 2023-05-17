@@ -23,6 +23,10 @@ class SolidConnectionJS private constructor(
     class Directory internal constructor(
         private val parent: SolidConnection.Directory
     ) {
+
+        @ExternalUse
+        fun data() = promise { parent.data.await().arr() }
+
         @ExternalUse
         fun files() = promise { parent.files().map { File(it) } }
 
@@ -39,8 +43,12 @@ class SolidConnectionJS private constructor(
     class File internal constructor(
         private val parent: SolidConnection.File
     ) {
+
         @ExternalUse
-        fun content() = promise { parent.content().map { Triple(s = it.s, p = it.p, o = it.o) } }
+        fun data() = promise { parent.data.await().arr() }
+
+        @ExternalUse
+        fun content() = promise { parent.content().arr() }
 
         /** Invalidates the contents, causing a new fetch for the next query **/
         @ExternalUse

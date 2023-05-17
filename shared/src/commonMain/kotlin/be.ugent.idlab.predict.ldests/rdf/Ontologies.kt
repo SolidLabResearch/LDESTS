@@ -1,14 +1,13 @@
 package be.ugent.idlab.predict.ldests.rdf
 
-import be.ugent.idlab.predict.ldests.remote.Triple
-
-object TripleUtil {
+object Ontologies {
 
     /**
      * Groups all provided triples by their subject
      */
+    // TODO: remove this in favour of store
     fun List<Triple>.group(): Collection<List<Triple>> {
-        return groupBy { it.s }.values
+        return groupBy { it.subject.value }.values
     }
 
     object RDF {
@@ -26,7 +25,7 @@ object TripleUtil {
          *  have the same subject!
          */
         fun List<Triple>.types(): List<String> {
-            return filter { it.p == Predicate.RDF_IS }.map { it.o }
+            return filter { it.predicate.value == Predicate.RDF_IS }.map { it.`object`.value }
         }
 
     }

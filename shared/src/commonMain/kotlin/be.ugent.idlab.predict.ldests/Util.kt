@@ -1,8 +1,8 @@
 package be.ugent.idlab.predict.ldests
 
-import be.ugent.idlab.predict.ldests.remote.Queries
-import be.ugent.idlab.predict.ldests.remote.Triple
-import be.ugent.idlab.predict.ldests.remote.query
+import be.ugent.idlab.predict.ldests.rdf.Query
+import be.ugent.idlab.predict.ldests.rdf.Triple
+import be.ugent.idlab.predict.ldests.rdf.query
 import kotlinx.coroutines.*
 import kotlin.coroutines.CoroutineContext
 
@@ -13,7 +13,7 @@ class LDESTS private constructor(private val triples: List<Triple>) {
         suspend fun fromUrl(url: String): LDESTS {
             val triples = mutableListOf<Triple>()
             query(
-                query = Queries.SPARQL_GET_ALL(5),
+                query = Query.SPARQL.GET_ALL(5),
                 url = url
             ) { triple ->
                 triples.add(triple)
@@ -24,7 +24,7 @@ class LDESTS private constructor(private val triples: List<Triple>) {
     }
 
     override fun toString() =
-        "LDESTS [${triples.map { it.s }.distinct().take(3).joinToString(", ")}]"
+        "LDESTS [${triples.map { it.subject.value }.distinct().take(3).joinToString(", ")}]"
 
 }
 

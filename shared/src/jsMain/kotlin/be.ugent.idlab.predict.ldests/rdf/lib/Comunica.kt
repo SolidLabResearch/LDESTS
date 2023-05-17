@@ -1,5 +1,5 @@
 @file:JsModule("@comunica/query-sparql")
-package be.ugent.idlab.predict.ldests.remote
+package be.ugent.idlab.predict.ldests.rdf.lib
 
 import kotlin.js.Promise
 

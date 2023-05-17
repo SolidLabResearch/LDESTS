@@ -31,6 +31,7 @@ kotlin {
             dependsOn(commonMain)
             dependencies {
                 implementation(npm("@comunica/query-sparql", "2.6.9"))
+                implementation(npm("n3", "1.16.4"))
             }
         }
 

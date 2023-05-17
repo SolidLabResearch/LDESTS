@@ -1,18 +1,15 @@
-package be.ugent.idlab.predict.ldests.remote
+package be.ugent.idlab.predict.ldests.rdf
 
+import be.ugent.idlab.predict.ldests.rdf.lib.BindingStreamValue
+import be.ugent.idlab.predict.ldests.rdf.lib.ComunicaQueryEngine
+import be.ugent.idlab.predict.ldests.rdf.lib.NamedNode
 import kotlinx.coroutines.await
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 
-// helper method to create triples from binding stream values
-fun BindingStreamValue.toTriple(): Triple {
-    return object: Triple {
-        override val s = get("s").value
-        override val p = get("p").value
-        override val o = get("o").value
-    }
-}
+actual typealias Triple = be.ugent.idlab.predict.ldests.rdf.lib.Triple
+actual typealias Term = be.ugent.idlab.predict.ldests.rdf.lib.Term
 
 internal actual suspend fun query(query: String, url: String, onValueReceived: (Triple) -> Unit) {
     // creating the stream with the url as option
@@ -33,7 +30,14 @@ internal actual suspend fun query(query: String, url: String, onValueReceived: (
     // blocking this coroutine until the end of the stream has been reached
     suspendCoroutine { continuation ->
         stream.on("data") { value: BindingStreamValue ->
-            onValueReceived(value.toTriple())
+            onValueReceived(
+                // FIXME: other nodes or something
+                Triple(
+                    subject = NamedNode(value.get("s").value),
+                    predicate = NamedNode(value.get("p").value),
+                    `object` = NamedNode(value.get("o").value)
+                )
+            )
         }.on("error") {
             continuation.resumeWithException(RuntimeException("Error occurred during query execution!"))
         }.on("end") {
