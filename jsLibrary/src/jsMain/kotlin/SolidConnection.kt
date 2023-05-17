@@ -6,6 +6,7 @@ import be.ugent.idlab.predict.ldests.solid.SolidConnection
 
 @JsExport
 @JsName("SolidConnection")
+@ExternalUse
 class SolidConnectionJS private constructor(
     private val con: SolidConnection
 ) {

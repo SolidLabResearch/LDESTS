@@ -33,12 +33,23 @@ fun <T> CoroutineScope.lazy(
     initializer: suspend CoroutineScope.() -> T
 ): Deferred<T> = async(context = context, start = CoroutineStart.LAZY, block = { this.initializer() })
 
+enum class LogLevel {
+    LOG, WARN, ERROR
+}
+
+var logLevel: LogLevel = LogLevel.LOG
+
 expect inline fun <reified T> T.log(text: String)
 
 expect inline fun <reified T> T.warn(text: String)
 
 expect inline fun <reified T> T.error(text: String)
 
+expect inline fun log(location: String?, text: String)
+
+expect inline fun warn(location: String?, text: String)
+
+expect inline fun error(location: String?, text: String)
 
 fun Throwable.formatted(): List<String> {
     val msg = message ?: return listOf()
