@@ -1,103 +1,81 @@
-package be.ugent.idlab.predict.ldests.api
-
 import be.ugent.idlab.predict.ldests.solid.SolidConnection
 
 /**
  * A JS-exportable wrapper for the SolidConnection class from the shared codebase
  */
 
-@ExperimentalJsExport
 @JsExport
 @JsName("SolidConnection")
-class SolidConnectionJS internal constructor(
+class SolidConnectionJS private constructor(
     private val con: SolidConnection
 ) {
 
-    @JsName("root")
+    @ExternalUse
     val root = Directory(con.root)
 
-    @JsName("close")
+    @ExternalUse
     fun close() = promise {
         con.close()
     }
 
-    @JsName("Directory")
+    @ExternalUse
     class Directory internal constructor(
         private val parent: SolidConnection.Directory
     ) {
+        @ExternalUse
         fun files() = promise { parent.files().map { File(it) } }
 
+        @ExternalUse
         fun directories() = promise { parent.directories().map { Directory(it) } }
 
         /** Invalidates the contents, causing a new fetch for the next query **/
+        @ExternalUse
         fun invalidate() = parent.invalidate()
 
     }
 
-    @JsName("File")
+    @ExternalUse
     class File internal constructor(
         private val parent: SolidConnection.File
     ) {
+        @ExternalUse
         fun content() = promise { parent.content().map { Triple(s = it.s, p = it.p, o = it.o) } }
 
         /** Invalidates the contents, causing a new fetch for the next query **/
+        @ExternalUse
         fun invalidate() = parent.invalidate()
 
     }
 
+    @ExternalUse
     class Builder {
 
         private lateinit var url: String
         private val builder = SolidConnection.Builder()
 
+        @ExternalUse
         fun url(url: String): Builder {
             this.url = url
             return this
         }
 
+        @ExternalUse
         fun root(directory: String): Builder {
             builder.rootDir = directory
             return this
         }
 
+        @ExternalUse
         fun authorisation(credentials: String): Builder {
             builder.authorisation = credentials
             return this
         }
 
+        @ExternalUse
         fun create(): SolidConnectionJS {
             return SolidConnectionJS(con = SolidConnection(url, builder))
         }
 
-//        fun create(
-//            url: String,
-//            options: dynamic = undefined
-//        ): SolidConnectionJS {
-//            val builder = SolidConnection.Builder()
-//            // checks to see if options is defined and non-null
-//            if (options) {
-//                (options.rootDir as? String)?.let { builder.rootDir = it }
-//                (options.authorisation as? String)?.let { builder.authorisation = it }
-//            }
-//            return SolidConnectionJS(con = SolidConnection(url, builder))
-//        }
-
     }
 
 }
-
-//@OptIn(ExperimentalJsExport::class)
-//@JsExport
-//@JsName("create")
-//fun create(
-//    url: String,
-//    options: dynamic = undefined
-//): SolidConnectionJS {
-//    val builder = SolidConnection.Builder()
-//    // checks to see if options is defined and non-null
-//    if (options) {
-//        (options.rootDir as? String)?.let { builder.rootDir = it }
-//        (options.authorisation as? String)?.let { builder.authorisation = it }
-//    }
-//    return SolidConnectionJS(con = SolidConnection(url, builder))
-//}

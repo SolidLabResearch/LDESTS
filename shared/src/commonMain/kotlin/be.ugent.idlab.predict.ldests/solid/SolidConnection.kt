@@ -113,7 +113,7 @@ class SolidConnection private constructor(
 
     }
 
-    class Builder internal constructor() {
+    class Builder {
         /** Configurable options in the builder scope **/
         var authorisation: String? = null
         var rootDir: String = ""
@@ -155,7 +155,7 @@ class SolidConnection private constructor(
             return con
         }
 
-        internal operator fun invoke(
+        operator fun invoke(
             url: String,
             config: Builder
         ): SolidConnection {

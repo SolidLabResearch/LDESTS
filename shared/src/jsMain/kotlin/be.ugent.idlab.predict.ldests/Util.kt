@@ -1,10 +1,10 @@
 package be.ugent.idlab.predict.ldests
 
-import io.ktor.util.date.*
+import kotlin.js.Date
 
-private val _start = getTimeMillis()
+private val _start = Date.now()
 
-fun time(): String = (getTimeMillis() - _start).toString().padStart(6, '0')
+fun time(): String = (Date.now() - _start).toString().padStart(6, '0')
 
 fun fmt(level: String, loc: String?, text: String): String {
     return "${time()} | $level - ${(loc ?: "Anonymous").padEnd(16).substring(0, 16)} | $text"

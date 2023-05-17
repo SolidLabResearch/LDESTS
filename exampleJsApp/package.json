@@ -3,7 +3,9 @@
   "version": "unspecified",
   "resolutions": {},
   "devDependencies": {},
-  "dependencies": {},
+  "dependencies": {
+    "@comunica/query-sparql": "2.6.9"
+  },
   "peerDependencies": {},
   "optionalDependencies": {},
   "bundledDependencies": []
