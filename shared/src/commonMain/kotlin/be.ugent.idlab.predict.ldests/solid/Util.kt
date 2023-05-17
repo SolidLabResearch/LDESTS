@@ -5,22 +5,25 @@ import be.ugent.idlab.predict.ldests.remote.Triple
 
 // connection helpers
 
-fun <T> List<T>.string(cap: Int = 3, transform: (T) -> String): String {
+fun <T> Collection<T>.string(cap: Int = 3, transform: (T) -> String): String {
     return if (isEmpty()) {
         "< empty >"
     } else if (size < cap) {
-        "[ " + this.joinToString(", ") { transform(it).ifBlank { "<root>" } } + " ]"
+        "[ " + this.joinToString(", ") { transform(it).ifBlank { "< blank >" } } + " ]"
     } else {
-        "[ " + this.subList(0, cap).joinToString(", ") {
-            transform(it).ifBlank { "<root>" }
-        } + ", ... (${size - cap} more) ]"
+        var result = "[ "
+        val it = iterator()
+        for (i in 0 until cap) {
+            result += transform(it.next()).ifBlank { "< blank >, " }
+        }
+        result + "... (${size - cap} more) ]"
     }
 }
 
-fun List<SolidConnection.Resource>.string(): String {
-    return string { it.path }
+fun Collection<SolidConnection.Resource>.string(cap: Int = 3): String {
+    return string(cap = cap) { it.path }
 }
 
-fun List<Triple>.string(): String {
-    return string(cap = 2) { "${it.s} - ${it.p} - ${it.o}" }
+fun Collection<Triple>.string(cap: Int = 2): String {
+    return string(cap = cap) { "${it.s} - ${it.p} - ${it.o}" }
 }

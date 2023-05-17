@@ -34,7 +34,7 @@ class SolidConnection private constructor(
         }
         private set
 
-        open fun refresh() {
+        open fun invalidate() {
             // resetting the deferred call
             data = connection.scope.lazy {
                 // getting all the triples, so files/directories can be extracted from it
@@ -82,8 +82,8 @@ class SolidConnection private constructor(
 
         private var directories: Deferred<List<Directory>> = createDeferredDirCall()
 
-        override fun refresh() {
-            super.refresh()
+        override fun invalidate() {
+            super.invalidate()
             // resetting the deferred calls
             files = createDeferredFileCall()
         }
@@ -151,6 +151,16 @@ class SolidConnection private constructor(
             builder.options()
             // creating the resulting connection
             val con = builder.build(url)
+            log("Built a Solid connection (${con.url})")
+            return con
+        }
+
+        internal operator fun invoke(
+            url: String,
+            config: Builder
+        ): SolidConnection {
+            // using the given config directly to build the connection
+            val con = config.build(url)
             log("Built a Solid connection (${con.url})")
             return con
         }

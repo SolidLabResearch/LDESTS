@@ -12,7 +12,7 @@ object Main {
         log("Found files ${conn.root.files().string()}")
         log("Found directories ${conn.root.directories().string()}")
         // refreshing
-        conn.root.refresh()
+        conn.root.invalidate()
         log("Found files again ${conn.root.files().string()}")
         // opening the last directory, if any
         log("Reading the first file: ${conn.root.files().first().content().string()}")
@@ -25,5 +25,6 @@ object Main {
 }
 
 suspend fun main() {
-    Main.main()
+    // temp disabled so it acts as a library
+//    Main.main()
 }
