@@ -15,6 +15,9 @@ class LDESTSJS {
     fun append(filename: String) = parent.append(filename = filename)
 
     @ExternalUse
-    fun close() = parent.close()
+    fun flush() = promise { parent.flush() }
+
+    @ExternalUse
+    fun close() = promise { parent.close() }
 
 }

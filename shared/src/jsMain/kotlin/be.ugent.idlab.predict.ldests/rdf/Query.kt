@@ -9,9 +9,6 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-actual typealias Triple = N3Triple
-actual typealias Term = N3Term
-
 internal actual suspend fun query(query: String, url: String, onValueReceived: (Triple) -> Unit) {
     // creating the stream with the url as option
     val options: dynamic = Any()

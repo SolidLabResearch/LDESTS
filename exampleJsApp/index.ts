@@ -3,10 +3,9 @@ import { LDESTS, Logging } from "ldests";
 async function main() {
     const ldests = new LDESTS();
     ldests.append("../../DAHCC-Data/dataset_participant_sample_accel_data.nt");
-    await sleep(50);
-    console.log("stopping");
-    ldests.close();
-    console.log("stopped");
+    await ldests.flush();
+    await ldests.close();
+    console.log("Finished main");
 }
 
 function sleep(ms) {
