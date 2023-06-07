@@ -1,32 +1,7 @@
-package be.ugent.idlab.predict.ldests
+package be.ugent.idlab.predict.ldests.util
 
-import be.ugent.idlab.predict.ldests.rdf.Query
-import be.ugent.idlab.predict.ldests.rdf.Triple
-import be.ugent.idlab.predict.ldests.rdf.query
 import kotlinx.coroutines.*
 import kotlin.coroutines.CoroutineContext
-
-class LDESTS private constructor(private val triples: List<Triple>) {
-
-    companion object {
-
-        suspend fun fromUrl(url: String): LDESTS {
-            val triples = mutableListOf<Triple>()
-            query(
-                query = Query.SPARQL.GET_ALL(5),
-                url = url
-            ) { triple ->
-                triples.add(triple)
-            }
-            return LDESTS(triples = triples)
-        }
-
-    }
-
-    override fun toString() =
-        "LDESTS [${triples.map { it.subject.value }.distinct().take(3).joinToString(", ")}]"
-
-}
 
 fun <T> CoroutineScope.lazy(
     context: CoroutineContext = Dispatchers.Unconfined,

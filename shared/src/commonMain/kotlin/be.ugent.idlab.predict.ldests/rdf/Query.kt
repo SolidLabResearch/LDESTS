@@ -1,9 +1,7 @@
 package be.ugent.idlab.predict.ldests.rdf
 
-import be.ugent.idlab.predict.ldests.log
-import be.ugent.idlab.predict.ldests.warn
-
-internal expect suspend fun query(query: String, url: String, onValueReceived: (Triple) -> Unit)
+import be.ugent.idlab.predict.ldests.util.log
+import be.ugent.idlab.predict.ldests.util.warn
 
 // collection of helper methods using the query method from above to collect the query result in various ways
 object Query {
@@ -37,3 +35,6 @@ object Query {
 
 }
 
+internal expect suspend fun query(query: String, url: String, onValueReceived: (Triple) -> Unit)
+
+internal expect suspend fun file(filename: String, onValueReceived: (Triple) -> Unit)

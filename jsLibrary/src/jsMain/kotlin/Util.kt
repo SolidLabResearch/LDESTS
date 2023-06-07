@@ -1,5 +1,5 @@
-import be.ugent.idlab.predict.ldests.LogLevel
-import be.ugent.idlab.predict.ldests.logLevel
+import be.ugent.idlab.predict.ldests.util.LogLevel
+import be.ugent.idlab.predict.ldests.util.logLevel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope

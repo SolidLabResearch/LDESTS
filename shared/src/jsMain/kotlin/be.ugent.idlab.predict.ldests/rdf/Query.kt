@@ -1,15 +1,16 @@
 package be.ugent.idlab.predict.ldests.rdf
 
-import be.ugent.idlab.predict.ldests.rdf.lib.BindingStreamValue
-import be.ugent.idlab.predict.ldests.rdf.lib.ComunicaQueryEngine
-import be.ugent.idlab.predict.ldests.rdf.lib.NamedNode
+import be.ugent.idlab.predict.ldests.lib.node.createReadFileStream
+import be.ugent.idlab.predict.ldests.lib.rdf.*
+import be.ugent.idlab.predict.ldests.util.createStreamParser
+import be.ugent.idlab.predict.ldests.util.createWritableNodeStream
 import kotlinx.coroutines.await
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
-import kotlin.coroutines.suspendCoroutine
 
-actual typealias Triple = be.ugent.idlab.predict.ldests.rdf.lib.Triple
-actual typealias Term = be.ugent.idlab.predict.ldests.rdf.lib.Term
+actual typealias Triple = N3Triple
+actual typealias Term = N3Term
 
 internal actual suspend fun query(query: String, url: String, onValueReceived: (Triple) -> Unit) {
     // creating the stream with the url as option
@@ -28,20 +29,50 @@ internal actual suspend fun query(query: String, url: String, onValueReceived: (
         throw RuntimeException(t.message)
     }
     // blocking this coroutine until the end of the stream has been reached
-    suspendCoroutine { continuation ->
+    suspendCancellableCoroutine { continuation ->
         stream.on("data") { value: BindingStreamValue ->
             onValueReceived(
                 // FIXME: other nodes or something
                 Triple(
-                    subject = NamedNode(value.get("s").value),
-                    predicate = NamedNode(value.get("p").value),
-                    `object` = NamedNode(value.get("o").value)
+                    subject = N3NamedNode(value.get("s").value),
+                    predicate = N3NamedNode(value.get("p").value),
+                    `object` = N3NamedNode(value.get("o").value)
                 )
             )
         }.on("error") {
-            continuation.resumeWithException(RuntimeException("Error occurred during query execution!"))
+            continuation.resumeWithException(it as Error)
         }.on("end") {
             continuation.resume(Unit)
         }
+        continuation.invokeOnCancellation {
+            // not propagating the cancel exception provided, as this is not an "error"
+            stream.destroy()
+        }
+    }
+}
+
+internal actual suspend fun file(
+    filename: String,
+    onValueReceived: (Triple) -> Unit
+) = suspendCancellableCoroutine { continuation ->
+    val fileStream = createReadFileStream(filename)
+    val resultStream = createWritableNodeStream<Triple> {
+        if (it != null) {
+            onValueReceived(it)
+        }
+    }
+    val parseStream = createStreamParser(resultStream)
+    fileStream.pipe(parseStream)
+    continuation.invokeOnCancellation {
+        // stopping the file stream, which should cancel the following parts as well
+        // not propagating the cancel exception provided, as this is not an "error"
+        fileStream.destroy()
+    }
+    resultStream.on("finish") {
+        continuation.resume(Unit)
+    }
+    resultStream.on("error") { error: Error ->
+        fileStream.destroy(error)
+        continuation.resumeWithException(error)
     }
 }

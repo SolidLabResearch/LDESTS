@@ -24,7 +24,8 @@ afterEvaluate {
     }
     // task to test the library by running the `exampleJsApp`
     val testLibraryTask = tasks.create("testLibraryTask", Exec::class.java) {
-        commandLine = listOf("npx", "ts-node", "../exampleJsApp/index.ts")
+        this.workingDir = File("..")
+        commandLine = listOf("npx", "ts-node", "exampleJsApp/index.ts")
     }
     project.tasks.getByName("build").finalizedBy(updateExampleApp)
     updateExampleApp.dependsOn(project.tasks.getByName("build"))

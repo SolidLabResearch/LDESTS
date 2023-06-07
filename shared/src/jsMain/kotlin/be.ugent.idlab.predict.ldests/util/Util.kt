@@ -1,4 +1,4 @@
-package be.ugent.idlab.predict.ldests
+package be.ugent.idlab.predict.ldests.util
 
 import kotlin.js.Date
 
@@ -20,11 +20,13 @@ actual inline fun log(location: String?, text: String) {
     if (logLevel.ordinal > LogLevel.LOG.ordinal) {
         return
     }
-    console.log(fmt(
-        level = "LOG",
-        loc = location,
-        text = text
-    ))
+    console.log(
+        fmt(
+            level = "LOG",
+            loc = location,
+            text = text
+        )
+    )
 }
 
 actual inline fun <reified T> T.warn(text: String) {

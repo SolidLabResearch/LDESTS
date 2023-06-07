@@ -1,7 +1,7 @@
 package be.ugent.idlab.predict.ldests.solid
 
-import be.ugent.idlab.predict.ldests.lazy
-import be.ugent.idlab.predict.ldests.log
+import be.ugent.idlab.predict.ldests.util.lazy
+import be.ugent.idlab.predict.ldests.util.log
 import be.ugent.idlab.predict.ldests.rdf.Ontologies.LDP.isDirectory
 import be.ugent.idlab.predict.ldests.rdf.Ontologies.LDP.isFile
 import be.ugent.idlab.predict.ldests.rdf.Ontologies.RDF.types
