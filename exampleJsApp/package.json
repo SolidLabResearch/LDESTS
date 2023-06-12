@@ -2,11 +2,11 @@
   "name": "exampleJsApp",
   "version": "unspecified",
   "resolutions": {},
-  "devDependencies": {},
   "dependencies": {
-    "@comunica/query-sparql": "2.6.9"
+    "@comunica/query-sparql": "2.6.9",
+    "@comunica/query-sparql-file": "^2.7.1",
+    "n3": "1.16.4"
   },
-  "peerDependencies": {},
-  "optionalDependencies": {},
-  "bundledDependencies": []
+  "bundledDependencies": [],
+  "bundleDependencies": []
 }

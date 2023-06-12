@@ -1,40 +1,31 @@
 package be.ugent.idlab.predict.ldests.rdf
 
-import be.ugent.idlab.predict.ldests.util.log
-import be.ugent.idlab.predict.ldests.util.warn
+import be.ugent.idlab.predict.ldests.util.InputStream
 
 // collection of helper methods using the query method from above to collect the query result in various ways
-object Query {
+expect class Query(
+    sparql: String
+) {
 
-    object SPARQL {
+    companion object {
 
-        const val GET_ALL = "SELECT * WHERE { ?s ?p ?o }"
+        /**
+         * Generic way of querying a stream (not very efficient)
+         */
+        suspend fun InputStream<Triple>.query(query: Query): InputStream<Binding>
 
-        fun GET_ALL(limit: Int) = "SELECT * WHERE { ?s ?p ?o } LIMIT $limit"
+        /**
+         * Querying the provider (directly); most efficient way of obtaining a stream of bindings instantly
+         */
+        suspend fun TripleProvider.query(query: Query): InputStream<Binding>
 
-    }
-
-    suspend fun queryCatching(query: String, url: String): List<Triple> {
-        log("Querying '$url'")
-        val result = mutableListOf<Triple>()
-        try {
-            query(
-                query = query,
-                url = url,
-                onValueReceived = { result.add(it) }
-            )
-        } catch (e: Exception) {
-            warn("Caught an exception during this query!")
-            warn(e)
-            if (result.isNotEmpty()) {
-                warn("Stream is incomplete, but not empty.")
-            }
-        }
-        return result
     }
 
 }
 
-internal expect suspend fun query(query: String, url: String, onValueReceived: (Triple) -> Unit)
+// not nested, as it is a typealias in the JS target
+expect class Binding
 
-internal expect suspend fun file(filename: String, onValueReceived: (Triple) -> Unit)
+// externally declared, same reason as the one above
+expect operator fun Binding.get(variable: String): Term?
+

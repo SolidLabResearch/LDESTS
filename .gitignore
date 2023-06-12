@@ -15,3 +15,5 @@ build/
 .cxx
 exampleJsApp/node_modules
 exampleJsApp/packages_imported
+exampleJsApp/package-lock.json
+kotlin-js-store/yarn.lock

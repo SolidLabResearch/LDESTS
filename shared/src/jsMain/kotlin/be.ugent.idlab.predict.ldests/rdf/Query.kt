@@ -1,75 +1,65 @@
 package be.ugent.idlab.predict.ldests.rdf
 
 import be.ugent.idlab.predict.ldests.lib.node.createReadFileStream
-import be.ugent.idlab.predict.ldests.lib.rdf.*
-import be.ugent.idlab.predict.ldests.util.createStreamParser
-import be.ugent.idlab.predict.ldests.util.createWritableNodeStream
+import be.ugent.idlab.predict.ldests.lib.node.finished
+import be.ugent.idlab.predict.ldests.lib.rdf.ComunicaBinding
+import be.ugent.idlab.predict.ldests.lib.rdf.ComunicaQueryEngine
+import be.ugent.idlab.predict.ldests.lib.rdf.N3Store
+import be.ugent.idlab.predict.ldests.lib.rdf.N3Triple
+import be.ugent.idlab.predict.ldests.util.InputStream
+import be.ugent.idlab.predict.ldests.util.join
+import be.ugent.idlab.predict.ldests.util.mapToTriples
+import be.ugent.idlab.predict.ldests.util.toStream
 import kotlinx.coroutines.await
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 
-internal actual suspend fun query(query: String, url: String, onValueReceived: (Triple) -> Unit) {
-    // creating the stream with the url as option
-    val options: dynamic = Any()
-    options.sources = arrayOf(url)
-    val stream = try {
-        ComunicaQueryEngine()
-            .query(
-                query = query,
-                options = options
-            )
-            .await()
-    } catch (t: Throwable) {
-        // have to catch all throwables, as it typically throws `Error`, which is not a subtype of
-        //  `Exception` apparently
-        throw RuntimeException(t.message)
-    }
-    // blocking this coroutine until the end of the stream has been reached
-    suspendCancellableCoroutine { continuation ->
-        stream.on("data") { value: BindingStreamValue ->
-            onValueReceived(
-                // FIXME: other nodes or something
-                Triple(
-                    subject = N3NamedNode(value.get("s").value),
-                    predicate = N3NamedNode(value.get("p").value),
-                    `object` = N3NamedNode(value.get("o").value)
-                )
-            )
-        }.on("error") {
-            continuation.resumeWithException(it as Error)
-        }.on("end") {
-            continuation.resume(Unit)
+actual typealias Binding = ComunicaBinding
+
+actual class Query actual constructor(
+    private val sparql: String
+) {
+
+    actual companion object {
+
+        actual suspend fun InputStream<N3Triple>.query(query: Query): InputStream<Binding> {
+            // using an intermediate actual N3 store generated from the input stream, which is used as a source for
+            //  the engine
+            val store = N3Store()
+            on("data") { store.add(it) }
+            finished(this).await()
+            // the resulting store can directly be used in the query engine
+            val options: dynamic = Any()
+            options.sources = arrayOf(store)
+            return ComunicaQueryEngine()
+                .query(query.sparql, options)
+                .await()
+                .toStream()
         }
-        continuation.invokeOnCancellation {
-            // not propagating the cancel exception provided, as this is not an "error"
-            stream.destroy()
+
+        actual suspend fun TripleProvider.query(query: Query): InputStream<Binding> {
+            val options: dynamic = Any()
+            options.sources = when (this) {
+                is LocalResource -> {
+                    // using an intermediate actual N3 store generated from the file, which is used as a source for
+                    //  the engine
+                    val store = N3Store()
+                    // TODO: move this to the provider itself, so there aren't multiple reads happening
+                    createReadFileStream(filepath)
+                        .mapToTriples()
+                        .on("data") { store.add(it) }
+                        .join()
+                    // keeping the store
+                    arrayOf(store)
+                }
+                is RemoteResource -> arrayOf(url)
+            }
+            return ComunicaQueryEngine()
+                .query(query.sparql, options)
+                .await()
+                .toStream()
         }
+
     }
+
 }
 
-internal actual suspend fun file(
-    filename: String,
-    onValueReceived: (Triple) -> Unit
-) = suspendCancellableCoroutine { continuation ->
-    val fileStream = createReadFileStream(filename)
-    val resultStream = createWritableNodeStream<Triple> {
-        if (it != null) {
-            onValueReceived(it)
-        }
-    }
-    val parseStream = createStreamParser(resultStream)
-    fileStream.pipe(parseStream)
-    continuation.invokeOnCancellation {
-        // stopping the file stream, which should cancel the following parts as well
-        // not propagating the cancel exception provided, as this is not an "error"
-        fileStream.destroy()
-    }
-    resultStream.on("finish") {
-        continuation.resume(Unit)
-    }
-    resultStream.on("error") { error: Error ->
-        fileStream.destroy(error)
-        continuation.resumeWithException(error)
-    }
-}
+actual operator fun ComunicaBinding.get(variable: String): Term? = get(variable)

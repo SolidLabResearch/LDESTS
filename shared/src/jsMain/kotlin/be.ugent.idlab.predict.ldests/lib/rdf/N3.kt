@@ -1,6 +1,7 @@
 @file:JsModule("n3")
 package be.ugent.idlab.predict.ldests.lib.rdf
 
+import be.ugent.idlab.predict.ldests.lib.node.NodeStream
 import be.ugent.idlab.predict.ldests.lib.node.ReadableNodeStream
 
 @JsName("Triple")
@@ -51,7 +52,17 @@ external class N3Variable(
 }
 
 @JsName("StreamParser")
-external class N3StreamParser: ReadableNodeStream
+external class N3StreamParser: ReadableNodeStream<N3Triple> {
+
+    override fun destroy(error: Error?)
+
+    override fun pipe(to: NodeStream)
+
+    override fun push(data: N3Triple?)
+
+    override fun on(event: String, callback: (data: dynamic) -> Unit): N3StreamParser
+
+}
 
 @JsName("Store")
 external class N3Store {

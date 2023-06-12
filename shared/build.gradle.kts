@@ -22,8 +22,7 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
-                // resolves https://youtrack.jetbrains.com/issue/KT-57235
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.0-RC")
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.1")
             }
         }
 
@@ -32,6 +31,10 @@ kotlin {
             dependencies {
                 implementation(npm("@comunica/query-sparql", "2.6.9"))
                 implementation(npm("n3", "1.16.4"))
+
+                val util = projectDir.resolve("src/jsMain/js/build/base-1.0.0.tgz").canonicalFile
+                implementation(npm("base", "file:$util"))
+
             }
         }
 
