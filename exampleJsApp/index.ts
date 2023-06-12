@@ -1,10 +1,12 @@
 import { LDESTS, Logging } from "ldests";
 
 async function main() {
-    const ldests = new LDESTS();
-    ldests.append("../DAHCC-Data/dataset_participant_sample_accel_data.nt");
-    await ldests.flush();
-    await ldests.close();
+    const stream = await new LDESTS.Builder("http://localhost:3000/test-stream/")
+                        .file("../DAHCC-Data/dataset_participant_sample_accel_data.nt")
+                        .create();
+    stream.append("../DAHCC-Data/dataset_participant_sample_accel_data.nt");
+    await stream.flush();
+    await stream.close();
     console.log("Finished main");
 }
 
