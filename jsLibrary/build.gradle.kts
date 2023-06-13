@@ -22,9 +22,16 @@ afterEvaluate {
         from("../build/js/packages")
         into("../exampleJsApp/node_modules")
     }
+    // task to update the exampleJsApp with this base code
+    val updateExampleAppBaseTask = tasks.create("updateExampleAppBaseTask", Copy::class.java) {
+        doFirst { mkdir("../exampleJsApp/node_modules/base") }
+        from("../shared/src/jsMain/js/src")
+        into("../exampleJsApp/node_modules/base")
+    }
+    updateExampleApp.finalizedBy(updateExampleAppBaseTask)
     // task to test the library by running the `exampleJsApp`
     val testLibraryTask = tasks.create("testLibraryTask", Exec::class.java) {
-        this.workingDir = File("..")
+        workingDir = File("..")
         commandLine = listOf("npx", "ts-node", "exampleJsApp/index.ts")
     }
     project.tasks.getByName("build").finalizedBy(updateExampleApp)

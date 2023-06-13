@@ -41,5 +41,15 @@ kotlin {
     }
 }
 
+afterEvaluate {
+    // task to build the JS base code
+    val buildBaseUtilTask = tasks.create("buildBaseUtilTask", Exec::class.java) {
+        workingDir = File("src/jsMain/js/src")
+        commandLine = listOf("npm", "pack", "--pack-destination", "../build")
+        doFirst { mkdir("${workingDir.parent}/build") }
+    }
+    project.tasks.getByName("build").dependsOn(buildBaseUtilTask)
+}
+
 // Use a proper version of webpack, TODO remove after updating to Kotlin 1.9.
 rootProject.the<NodeJsRootExtension>().versions.webpack.version = "5.76.2"
