@@ -7,6 +7,8 @@ expect class Query(
     sparql: String
 ) {
 
+    val variables: Set<String>
+
     companion object {
 
         /**

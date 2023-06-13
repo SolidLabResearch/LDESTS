@@ -17,6 +17,6 @@ function sleep(ms) {
 }
 
 // only allowing warnings and errors from ldests to be logged
-Logging.setLogLevel(Logging.WARN);
+Logging.setLogLevel(Logging.LOG);
 // executing the test, letting it exit the process accordingly
 main();

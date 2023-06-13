@@ -1,5 +1,4 @@
 import be.ugent.idlab.predict.ldests.core.LDESTS
-import be.ugent.idlab.predict.ldests.rdf.TripleStore
 
 /**
  * A JS-exportable wrapper for the SolidConnection class from the shared codebase
@@ -45,11 +44,8 @@ class LDESTSJS private constructor(
             return this
         }
 
-        @ExternalUse
-        fun shape(shape: TripleStore): BuilderJS {
-            builder.shape(shape)
-            return this
-        }
+        // TODO: provide proper shape builder, exposing properties for target class and
+        //  either a set of constraints, or the ability to automatically infer the rest
 
         @ExternalUse
         fun create() = promise { LDESTSJS(builder.create()) }

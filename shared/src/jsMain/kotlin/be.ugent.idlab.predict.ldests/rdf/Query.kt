@@ -18,6 +18,27 @@ actual class Query actual constructor(
     private val sparql: String
 ) {
 
+    // FIXME: support for more than just `SELECT ? WHERE` might be handy, also doesn't support more complex queries
+    actual val variables: Set<String> = if (sparql.startsWith("SELECT * WHERE")) {
+        // everything matching the variable pattern is kept
+        Regex(pattern = "\\?([a-zA-Z]+)")
+            .findAll(sparql)
+            .map { it.groups[1]!!.value }
+            .toSet()
+    } else {
+        // only keeping the ones mentioned in "SELECT `?xyz` WHERE"
+        Regex(pattern = "SELECT\\s+((?:\\s*\\?[a-zA-Z]+)+)\\s+WHERE")
+            .find(sparql)!!
+            .groups[1]!!
+            .value
+            .let {
+                Regex(pattern = "\\?([a-zA-Z]+)")
+                    .findAll(it)
+                    .map { it.groupValues[1] }
+            }
+            .toSet()
+    }
+
     actual companion object {
 
         actual suspend fun InputStream<N3Triple>.query(query: Query): InputStream<Binding> {
