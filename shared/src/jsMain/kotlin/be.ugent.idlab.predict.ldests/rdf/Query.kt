@@ -6,33 +6,30 @@ import be.ugent.idlab.predict.ldests.lib.rdf.ComunicaBinding
 import be.ugent.idlab.predict.ldests.lib.rdf.ComunicaQueryEngine
 import be.ugent.idlab.predict.ldests.lib.rdf.N3Store
 import be.ugent.idlab.predict.ldests.lib.rdf.N3Triple
-import be.ugent.idlab.predict.ldests.util.InputStream
-import be.ugent.idlab.predict.ldests.util.join
-import be.ugent.idlab.predict.ldests.util.mapToTriples
-import be.ugent.idlab.predict.ldests.util.toStream
+import be.ugent.idlab.predict.ldests.util.*
 import kotlinx.coroutines.await
 
 actual typealias Binding = ComunicaBinding
 
 actual class Query actual constructor(
-    private val sparql: String
+    val sparql: String
 ) {
 
     // FIXME: support for more than just `SELECT ? WHERE` might be handy, also doesn't support more complex queries
     actual val variables: Set<String> = if (sparql.startsWith("SELECT * WHERE")) {
         // everything matching the variable pattern is kept
-        Regex(pattern = "\\?([a-zA-Z]+)")
+        Regex(pattern = "\\?([a-zA-Z0-9]+)")
             .findAll(sparql)
             .map { it.groups[1]!!.value }
             .toSet()
     } else {
         // only keeping the ones mentioned in "SELECT `?xyz` WHERE"
-        Regex(pattern = "SELECT\\s+((?:\\s*\\?[a-zA-Z]+)+)\\s+WHERE")
+        Regex(pattern = "SELECT\\s+((?:\\s*\\?[a-zA-Z0-9]+)+)\\s+WHERE")
             .find(sparql)!!
             .groups[1]!!
             .value
             .let {
-                Regex(pattern = "\\?([a-zA-Z]+)")
+                Regex(pattern = "\\?([a-zA-Z0-9]+)")
                     .findAll(it)
                     .map { it.groupValues[1] }
             }
@@ -68,11 +65,14 @@ actual class Query actual constructor(
                         .mapToTriples()
                         .on("data") { store.add(it) }
                         .join()
+                    log("Read ${store.size} triples locally prior to querying!")
                     // keeping the store
                     arrayOf(store)
                 }
                 is RemoteResource -> arrayOf(url)
             }
+            log("Applying querying (variables ${query.variables})")
+            log(query.sparql)
             return ComunicaQueryEngine()
                 .query(query.sparql, options)
                 .await()

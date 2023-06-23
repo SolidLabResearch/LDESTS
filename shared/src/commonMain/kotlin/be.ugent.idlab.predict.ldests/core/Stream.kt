@@ -1,14 +1,10 @@
 package be.ugent.idlab.predict.ldests.core
 
 import be.ugent.idlab.predict.ldests.rdf.Binding
-import be.ugent.idlab.predict.ldests.rdf.get
 import be.ugent.idlab.predict.ldests.util.InputStream
 import be.ugent.idlab.predict.ldests.util.consume
 import be.ugent.idlab.predict.ldests.util.log
 import be.ugent.idlab.predict.ldests.util.warn
-import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toInstant
 
 class Stream(
     private val shape: Shape,
@@ -28,7 +24,7 @@ class Stream(
     /**
      * The general query used to extract data from sources
      */
-    internal val query = shape.asQuery()
+    internal val query = shape.query
 
     internal suspend fun InputStream<Binding>.insert() = consume {
         val fragments = find(it)
@@ -65,7 +61,7 @@ class Stream(
 
     inner class Fragment(
         id: String,
-        constraints: List<Shape.Constraint>
+        constraints: List<Shape.Property>
     ) {
 
         // id - content, TODO not yet published
@@ -75,35 +71,17 @@ class Stream(
 
         private val constrainedShape = shape.applyConstraints(constraints)
 
-        internal val query = constrainedShape.asQuery()
+        internal val query = constrainedShape.query
 
         /**
          * Adds the binding to the fragment, throws if the constraints aren't met
          */
         internal fun append(data: Binding) {
             // TODO: proper resource selection
-            val result = "${data.id()}:${data.values().joinToString(";")};"
+            val result = shape.format(data)
 //            resources["0"] = (resources["0"] ?: "") + "${data.id()}:${data.values().joinToString(";")};"
-            resources["0"] = (resources["0"] ?: "") + result
+//            resources["0"] = (resources["0"] ?: "") + result
             log("Appended data in fragment, added: $result")
-        }
-
-        /** Append helpers **/
-
-        private fun Binding.id(): Long {
-            // TODO: `id` should always be hardcoded in the generated fields, or maybe provide a LUT in the shape that
-            //  created the query in the first place
-            return LocalDateTime.parse(get("id")!!.value).toEpochMilli()
-        }
-
-        private fun Binding.values(): List<String> {
-            // FIXME: hardcoded
-            // TODO: IRI for prop through constraints & LUT
-            return listOf(get("value")!!.value)
-        }
-
-        private fun LocalDateTime.toEpochMilli(): Long {
-            return this.toInstant(TimeZone.of("UTC")).toEpochMilliseconds()
         }
 
     }

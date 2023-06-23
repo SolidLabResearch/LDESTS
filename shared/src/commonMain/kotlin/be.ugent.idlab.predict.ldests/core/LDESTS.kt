@@ -5,10 +5,11 @@ import be.ugent.idlab.predict.ldests.rdf.Query.Companion.query
 import be.ugent.idlab.predict.ldests.rdf.RemoteResource
 import be.ugent.idlab.predict.ldests.rdf.TripleProvider
 import be.ugent.idlab.predict.ldests.util.join
+import be.ugent.idlab.predict.ldests.util.log
 import kotlinx.coroutines.*
 
 class LDESTS private constructor(
-    /*
+    /**
      * The generic "global" shape, gets converted to individual SPARQL-queries after applying fragment-based
      * shape properties
      */
@@ -29,6 +30,7 @@ class LDESTS private constructor(
     fun append(filename: String) {
         scope.launch {
             with (stream) {
+                log("Appending data from file `$filename`")
                 LocalResource.from(filename)
                     .query(query)
                     .insert()
@@ -54,20 +56,20 @@ class LDESTS private constructor(
 
         fun file(filepath: String): Builder {
             /* TODO: derive shape using the triples read from this filepath if necessary instead */
-            shape = Shape()
+//            shape = Shape()
             data.add(LocalResource.from(filepath))
             return this
         }
 
         fun stream(ldesUrl: String): Builder {
             /* TODO: derive shape using the triples read from this stream if necessary instead */
-            shape = Shape()
+//            shape = Shape()
             TODO()
         }
 
         fun remote(url: String): Builder {
             /* TODO: derive shape using the triples read from this remote resource if necessary instead */
-            shape = Shape()
+//            shape = Shape()
             data.add(RemoteResource.from(url))
             return this
         }

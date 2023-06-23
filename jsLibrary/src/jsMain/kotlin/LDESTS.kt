@@ -1,3 +1,4 @@
+
 import be.ugent.idlab.predict.ldests.core.LDESTS
 
 /**
@@ -25,6 +26,12 @@ class LDESTSJS private constructor(
     class BuilderJS(url: String) {
 
         private val builder = LDESTS.Builder(url)
+
+        @ExternalUse
+        fun shape(shape: ShapeJS): BuilderJS {
+            builder.shape(shape.shape)
+            return this
+        }
 
         @ExternalUse
         fun file(filepath: String): BuilderJS {

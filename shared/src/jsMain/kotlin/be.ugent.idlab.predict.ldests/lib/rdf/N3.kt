@@ -21,34 +21,28 @@ external class N3Triple(
 @JsName("Term")
 external interface N3Term {
     val value: String
+    @JsName("termType")
+    val type: String
 }
 
 @JsName("NamedNode")
-external class N3NamedNode(
-    iri: String
-): N3Term {
-    override val value: String
-}
+external interface N3NamedNode: N3Term
 
 @JsName("BlankNode")
-external class N3BlankNode(
-    name: String
-): N3Term {
-    override val value: String
-}
+external interface N3BlankNode: N3Term
 
 @JsName("Literal")
-external class N3Literal(
-    id: String
-): N3Term {
-    override val value: String
-}
-
-@JsName("Variable")
-external class N3Variable(
-    name: String
-): N3Term {
-    override val value: String
+external interface N3Literal: N3Term {
+    /**
+     * The language as lowercase BCP47 string (examples: en, en-gb)
+     * or an empty string if the literal has no language.
+     * @link http://tools.ietf.org/html/bcp47
+     */
+    val language: String
+    /**
+     * A NamedNode whose IRI represents the datatype of the literal.
+     */
+    val datatype: N3NamedNode
 }
 
 @JsName("StreamParser")
