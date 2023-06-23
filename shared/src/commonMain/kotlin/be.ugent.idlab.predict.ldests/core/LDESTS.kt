@@ -1,9 +1,9 @@
 package be.ugent.idlab.predict.ldests.core
 
 import be.ugent.idlab.predict.ldests.rdf.LocalResource
-import be.ugent.idlab.predict.ldests.rdf.Query.Companion.query
 import be.ugent.idlab.predict.ldests.rdf.RemoteResource
 import be.ugent.idlab.predict.ldests.rdf.TripleProvider
+import be.ugent.idlab.predict.ldests.rdf.query
 import be.ugent.idlab.predict.ldests.util.join
 import be.ugent.idlab.predict.ldests.util.log
 import kotlinx.coroutines.*

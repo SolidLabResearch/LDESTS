@@ -1,3 +1,4 @@
+
 import be.ugent.idlab.predict.ldests.core.Shape
 import be.ugent.idlab.predict.ldests.rdf.asNamedNode
 
@@ -11,6 +12,20 @@ class ShapeJS private constructor(
     val query: String
         get() = shape.query.sparql
 
+    fun narrow(
+        constraints: Array<dynamic>
+    ): ShapeJS {
+        // TODO: improve this by supporting other property types and syntaxes, or remove this API, as it is intended for internal use anyway
+        var id = shape.properties.size
+        val c = constraints.associate {
+            (it.uri as String).asNamedNode() to Shape.ConstantProperty(
+                value = (it.values as Array<String>).map { it.asNamedNode() },
+                id = id++
+            )
+        }
+        return ShapeJS(shape.narrow(c))
+    }
+
     @ExternalUse
     class Builder(
         type: String,
@@ -18,7 +33,7 @@ class ShapeJS private constructor(
         private val identifierType: String = "<http://www.w3.org/2001/XMLSchema#dateTime>"
     ) {
 
-        private val builder = Shape.BuildScope(
+        internal val builder = Shape.BuildScope(
             typeIdentifier = Shape.ClassProperty(type.asNamedNode())
         )
 

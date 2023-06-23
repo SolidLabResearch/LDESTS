@@ -1,6 +1,7 @@
 package be.ugent.idlab.predict.ldests.core
 
 import be.ugent.idlab.predict.ldests.rdf.Binding
+import be.ugent.idlab.predict.ldests.rdf.NamedNodeTerm
 import be.ugent.idlab.predict.ldests.util.InputStream
 import be.ugent.idlab.predict.ldests.util.consume
 import be.ugent.idlab.predict.ldests.util.log
@@ -16,7 +17,7 @@ class Stream(
         fragments.add(
             Fragment(
                 id = "fragment1",
-                constraints = listOf()
+                constraints = mapOf()
             )
         )
     }
@@ -61,7 +62,7 @@ class Stream(
 
     inner class Fragment(
         id: String,
-        constraints: List<Shape.Property>
+        constraints: Map<NamedNodeTerm, Shape.Property>
     ) {
 
         // id - content, TODO not yet published
@@ -69,7 +70,7 @@ class Stream(
 
         internal val url: String = "<TODO>" // combination of parent stream & id something
 
-        private val constrainedShape = shape.applyConstraints(constraints)
+        private val constrainedShape = shape.narrow(constraints)
 
         internal val query = constrainedShape.query
 

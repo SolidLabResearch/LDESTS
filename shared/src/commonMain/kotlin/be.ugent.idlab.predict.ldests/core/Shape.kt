@@ -1,5 +1,6 @@
 package be.ugent.idlab.predict.ldests.core
 
+import be.ugent.idlab.predict.ldests.core.Shape.Property.Companion.query
 import be.ugent.idlab.predict.ldests.rdf.*
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -8,7 +9,7 @@ import kotlinx.datetime.toInstant
 class Shape private constructor(
     private val typeIdentifier: ClassProperty,
     private val sampleIdentifier: IdentifierProperty,
-    private val properties: List<Property>
+    val properties: Map<NamedNodeTerm, Property>
 ) {
 
     /** The type/class property, not part of the regular property hierarchy due to its unique nature **/
@@ -24,77 +25,77 @@ class Shape private constructor(
 
     /** Other properties, can be defined >= 0 times **/
     sealed class Property(
-        protected val predicate: NamedNodeTerm,
         /* Identifier used in the sparql query, `null` if it is not bound outside of the query */
         val identifier: String?
     ) {
 
-        /** Whether or not the property is compatible with the provided data **/
-        abstract fun satisfies(data: Term): Boolean
+        protected abstract val query: String
 
-        abstract fun asQuery(subject: String = "s"): String
+        /** Whether or not the property validly covers the provided one (as a validity test of the provided property) **/
+        abstract fun covers(property: Property): Boolean
+
+        companion object {
+
+            fun Pair<NamedNodeTerm, Property>.query(subject: String = "s"): String {
+                return "?$subject ${first.value} ${second.query} ."
+            }
+
+        }
 
     }
 
     class ConstantProperty(
-        predicate: NamedNodeTerm,
         /* NamedNodeTerm, BlankNodeTerm and LiteralTerm possible, but Literal's shouldn't be used */
-        val value: List<Term>,
+        private val value: List<Term>,
         private val id: Int
     ): Property(
-        predicate = predicate,
         identifier = if (value.size == 1) { /* Not bound externally */ null } else { "c${id}" }
     ) {
 
-        // see `asQuery()` to see the use-case
-        private val filter = if (value.size == 1) { "" } else {
-            var result = "BIND("
-            value.forEachIndexed { index, term ->
-                val statement = "?cv${id} = ${term.value}, $index"
-                result = "${result}IF($statement, "
-            }
-            result + "-1${")".repeat(value.size)} AS ?$identifier)"
-        }
-
-        override fun satisfies(data: Term): Boolean {
-            return data in value
-        }
-
-        override fun asQuery(subject: String): String {
-            return if (value.size == 1) {
-                // simple "assertion" statement only
-                "?$subject ${predicate.value} ${value.first().value} ."
+        override val query: String = run {
+            if (value.size == 1) {
+                // simple "assertion" statement suffices
+                value.first().value
             } else {
+                var filter = "BIND("
+                value.forEachIndexed { index, term ->
+                    val statement = "?cv${id} = ${term.value}, $index"
+                    filter = "${filter}IF($statement, "
+                }
                 /**
-                 * The resulting query looks like
+                 * The resulting query looks like ([] already included)
                  * ```
-                 * ?subject <predicate> ?cv{id} .
+                 * [?subject <predicate>] ?cv{id} .
                  * BIND(
                  *      IF(?cv{id} = value[0], 0, IF(?cv{id} = value[1], 1, ..., -1)) AS ?c{id}
                  * )
                  * ```
                  */
-                return "?$subject ${predicate.value} ?cv${id} .\n$filter ."
+                "?cv${id} .\n$filter -1${")".repeat(value.size)} AS ?$identifier)"
             }
+        }
+
+        override fun covers(property: Property): Boolean {
+            return property is ConstantProperty &&
+                    property.value.all { prop -> value.any { it.value == prop.value } }
         }
 
     }
 
     class VariableProperty(
-        predicate: NamedNodeTerm,
         val type: NamedNodeTerm,
         val count: Int,
         id: Int
     ): Property(
-        predicate = predicate,
         identifier = "v${id}"
     ) {
-        override fun satisfies(data: Term): Boolean {
-            return data.type == "LiteralTerm" && (data as LiteralTerm).datatype == type
-        }
 
-        override fun asQuery(subject: String): String {
-            return "?$subject ${predicate.value} ?$identifier ."
+        override val query = "?$identifier"
+
+        override fun covers(property: Property): Boolean {
+            return property is VariableProperty &&
+                    property.type.type == "LiteralTerm" &&
+                    (property.type as LiteralTerm).datatype == type
         }
 
     }
@@ -110,11 +111,11 @@ class Shape private constructor(
 
     class BuildScope(private val typeIdentifier: ClassProperty) {
 
-        private val properties = mutableListOf<Property>()
+        private val properties = mutableMapOf<NamedNodeTerm, Property>()
         private val prefixes = mutableMapOf<String, String>()
 
-        fun apply(constraints: Iterable<Property>) {
-            properties.addAll(constraints)
+        fun apply(constraints: Map<NamedNodeTerm, Property>) {
+            properties.putAll(constraints)
         }
 
         fun prefix(short: String, full: String) {
@@ -122,23 +123,17 @@ class Shape private constructor(
         }
 
         fun variable(path: String, type: String, count: Int = 1) {
-            properties.add(
-                element = VariableProperty(
-                    predicate = path.parsed(),
-                    type = type.parsed(),
-                    count = count,
-                    id = properties.size
-                )
+            properties[path.parsed()] = VariableProperty(
+                type = type.parsed(),
+                count = count,
+                id = properties.size
             )
         }
 
         fun constant(path: String, vararg value: String) {
-            properties.add(
-                element = ConstantProperty(
-                    predicate = path.parsed(),
-                    value = value.map { it.parsed() },
-                    id = properties.size
-                )
+            properties[path.parsed()] = ConstantProperty(
+                value = value.map { it.parsed() },
+                id = properties.size
             )
         }
 
@@ -176,28 +171,18 @@ class Shape private constructor(
      */
 
     val query = run {
-        val select = "SELECT ?id " + properties.filter { it.identifier != null }.joinToString(" ") { "?${it.identifier}" } + " WHERE"
-        val body = "?s a ${typeIdentifier.value.value} .\n?s ${sampleIdentifier.predicate.value} ?id .\n" + properties.joinToString("\n") { it.asQuery() }
+        // TODO: the resulting query can be improved upon by setting the subject `?s` up front and using `;`
+        val select = "SELECT ?id " + properties.values.mapNotNull { it.identifier }.joinToString(" ") { "?$it" } + " WHERE"
+        val body = "?s a ${typeIdentifier.value.value} .\n?s ${sampleIdentifier.predicate.value} ?id .\n" + properties.asIterable().joinToString("\n") { (it.key to it.value).query() }
         val query = "$select {\n$body\n}"
-        Query(sparql = query)
-//        return Query("""
-//            PREFIX saref: <https://saref.etsi.org/core/>
-//            PREFIX rdf: <http://rdfs.org/ns/void#>
-//            PREFIX dahcc_acc: <https://dahcc.idlab.ugent.be/Ontology/SensorsAndWearables/SmartphoneAcceleration/>
-//
-//            SELECT ?id ?value ?index WHERE {
-//                ?sample saref:hasTimestamp ?id ;
-//                    saref:relatesToProperty ?prop ;
-//                    saref:hasValue ?value .
-//                BIND(
-//                    IF(?prop = dahcc_acc:x, 0, IF(?prop = dahcc_acc:y, 1, IF(?prop = dahcc_acc:z, 2, -1))) AS ?index
-//                )
-//            }"""
-//        )
+        Query(
+            sparql = query,
+            variables = setOf("id") + properties.values.mapNotNull { it.identifier }
+        )
     }
 
     fun format(result: Binding): String {
-        return "${result.id()}:" + properties.filter { it.identifier != null }.joinToString(";") { result[it.identifier!!]!!.value }
+        return "${result.id()}:" + properties.values.filter { it.identifier != null }.joinToString(";") { result[it.identifier!!]!!.value }
     }
 
     private fun Binding.id() = LocalDateTime.parse(get("id")!!.value).toEpochMilli()
@@ -210,11 +195,14 @@ class Shape private constructor(
 
 
     /**
-     * Narrows the broader shape (`this`) with the constraints found in `delta` (using own ontology!)
+     * Narrows the broader shape (`this`) with the provided constraints
      */
-    // TODO: constraintsbuilder instead ?
-    internal fun applyConstraints(constraints: Iterable<Property>): Shape {
-        // TODO: logic described above
-        return this
+    fun narrow(constraints: Map<NamedNodeTerm, Property>): Shape {
+        check(constraints.all { properties[it.key]?.covers(it.value) == true })
+        return Shape(
+            typeIdentifier = typeIdentifier,
+            sampleIdentifier = sampleIdentifier,
+            properties = properties + constraints
+        )
     }
 }
