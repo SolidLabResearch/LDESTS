@@ -1,6 +1,8 @@
 
 import be.ugent.idlab.predict.ldests.core.LDESTS
+import be.ugent.idlab.predict.ldests.core.Stream
 import be.ugent.idlab.predict.ldests.rdf.asNamedNode
+import kotlin.time.Duration.Companion.minutes
 
 /**
  * A JS-exportable wrapper for the SolidConnection class from the shared codebase
@@ -16,9 +18,11 @@ class LDESTSJS private constructor(
     @ExternalUse
     fun append(filename: String) = parent.append(filename = filename)
 
+    @Suppress("NON_EXPORTABLE_TYPE") // wrong in this case
     @ExternalUse
     fun flush() = promise { parent.flush() }
 
+    @Suppress("NON_EXPORTABLE_TYPE") // wrong in this case
     @ExternalUse
     fun close() = promise { parent.close() }
 
@@ -27,6 +31,16 @@ class LDESTSJS private constructor(
     class BuilderJS(url: String) {
 
         private val builder = LDESTS.Builder(url)
+
+        @ExternalUse
+        fun config(config: dynamic): BuilderJS {
+            builder.config(Stream.Configuration(
+                window = (config.window as? Int)?.minutes ?: Stream.Configuration.DEFAULT_WINDOW_MIN.minutes,
+                resourceSize = config.resourceSize as? Int ?: Stream.Configuration.DEFAULT_RESOURCE_SIZE,
+                resourceCount = config.resourceCount as? Int ?: Stream.Configuration.DEFAULT_RESOURCE_COUNT,
+            ))
+            return this
+        }
 
         @ExternalUse
         fun shape(shape: ShapeJS): BuilderJS {

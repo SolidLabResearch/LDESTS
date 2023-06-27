@@ -8,6 +8,10 @@ fun <T> CoroutineScope.lazy(
     initializer: suspend CoroutineScope.() -> T
 ): Deferred<T> = async(context = context, start = CoroutineStart.LAZY, block = { this.initializer() })
 
+val LETTER_FILTER = Regex("[^a-zA-Z]")
+
+fun String.retainLetters() = LETTER_FILTER.replace(this, "")
+
 enum class LogLevel {
     LOG, WARN, ERROR
 }

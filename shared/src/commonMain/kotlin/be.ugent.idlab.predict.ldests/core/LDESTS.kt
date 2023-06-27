@@ -5,9 +5,16 @@ import be.ugent.idlab.predict.ldests.rdf.LocalResource
 import be.ugent.idlab.predict.ldests.rdf.NamedNodeTerm
 import be.ugent.idlab.predict.ldests.rdf.TripleProvider
 import be.ugent.idlab.predict.ldests.util.log
+import be.ugent.idlab.predict.ldests.util.warn
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class LDESTS private constructor(
+    /**
+     * Stream-specific configuration
+     */
+    configuration: Stream.Configuration,
     /**
      * The generic "global" shape, gets converted to individual SPARQL-queries after applying fragment-based
      * shape properties
@@ -27,34 +34,47 @@ class LDESTS private constructor(
     //  as well
     private val job = Job()
     private val scope = CoroutineScope(Dispatchers.Unconfined + job)
+    // lock responsible for all resources that aren't used by the stream (yet)
+    private val resourceLock = Mutex()
 
-    private val stream = Stream(shape = shape, rules = rules)
+    private val stream = Stream(
+        configuration = configuration,
+        shape = shape,
+        rules = rules
+    )
 
     fun append(filename: String) {
         scope.launch {
             with (stream) {
                 log("Appending data from file `$filename`")
-                LocalResource
-                    .from(
-                        filepath = filename,
-                        scope = scope
-                    ).insert()
+                resourceLock.withLock {
+                    LocalResource.from(filepath = filename)
+                    // TODO: other resource related work here, such as checks for compat, maybe shape extraction, ...
+                }.insert()
             }
         }
     }
 
     suspend fun flush() {
+        warn("Flush: releasing assigned resources.")
+        resourceLock.lock()
+        warn("Flush: waiting for the stream to finish.")
+        stream.flush()
+        warn("Flush: finished, joining the coroutine.")
         job.join()
     }
 
     suspend fun close() {
+        warn("Close called, stopping all ongoing work.")
         job.cancelAndJoin()
+        log("Stream has been closed.")
     }
 
     class Builder(
         private val url: String /*TODO: Solid conn, url somehow or filepath/directory*/
     ) {
 
+        private var configuration = Stream.Configuration()
         private var shape: Shape? = null
         // TODO: replace this with an instruction to initialise the stream's content based on either pre-existing
         //  data, or a configuration provided by this builder
@@ -90,11 +110,20 @@ class LDESTS private constructor(
             return this
         }
 
+        fun config(configuration: Stream.Configuration): Builder {
+            this.configuration = configuration
+            return this
+        }
+
         // TODO: if shape is null, try reading from the url field above to see if a stream already exists
         //  in LDESTS itself
         // TODO: read URL and see if provided shape & present shape are compatible
         suspend fun create(): LDESTS = shape?.let {
-            LDESTS(shape = it, rules = it.split(*queryUris.toTypedArray()))
+            LDESTS(
+                configuration = configuration,
+                shape = it,
+                rules = it.split(*queryUris.toTypedArray())
+            )
         } ?: throw Error("Invalid Builder() usage!")
 
     }

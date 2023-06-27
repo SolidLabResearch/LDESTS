@@ -1,3 +1,5 @@
+@file:Suppress("NOTHING_TO_INLINE")
+
 package be.ugent.idlab.predict.ldests.util
 
 import kotlin.js.Date

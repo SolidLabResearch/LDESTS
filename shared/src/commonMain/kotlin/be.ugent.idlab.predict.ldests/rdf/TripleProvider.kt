@@ -1,23 +1,17 @@
 package be.ugent.idlab.predict.ldests.rdf
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Deferred
-
 // represents all supported possible ways of obtaining triples (data)
 // includes local files and remote
 expect sealed interface TripleProvider
 
 // various possible triple providers
-expect class LocalResource private constructor(
-    filepath: String,
-    scope: CoroutineScope
-): TripleProvider {
+expect class LocalResource: TripleProvider {
 
-    val data: Deferred<TripleStore>
+    val data: TripleStore
 
     companion object {
         // TODO: validity checking
-        fun from(filepath: String, scope: CoroutineScope): LocalResource
+        suspend fun from(filepath: String): LocalResource
 
     }
 

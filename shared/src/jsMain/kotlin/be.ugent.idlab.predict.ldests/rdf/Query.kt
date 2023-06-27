@@ -33,14 +33,13 @@ actual suspend fun TripleProvider.query(query: Query): InputStream<Binding> {
         is LocalResource -> {
             // using an intermediate actual N3 store generated from the file, which is used as a source for
             //  the engine
-            val store = data.await().buf
+            val store = data.buf
             // keeping the store
             arrayOf(store)
         }
         is RemoteResource -> arrayOf(url)
     }
     log("Applying querying (variables ${query.variables})")
-    log(query.sparql)
     return ComunicaQueryEngine()
         .query(query.sparql, options)
         .await()

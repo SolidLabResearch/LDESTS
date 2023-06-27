@@ -27,6 +27,7 @@ async function main() {
             "<http://www.w3.org/2001/XMLSchema#dateTime>"
         ).build();
     const stream = await new LDESTS.Builder("http://localhost:3000/test-stream/")
+        .config({ 'window': 5, 'resourceSize': 1000, 'resourceCount': 3 })
         .shape(shape)
         .queryUri("<https://saref.etsi.org/core/relatesToProperty>")
         .queryUri("<https://saref.etsi.org/core/measurementMadeBy>")
