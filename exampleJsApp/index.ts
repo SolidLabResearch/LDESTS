@@ -1,4 +1,4 @@
-import { LDESTS, Shape, Logging } from "ldests";
+import { LDESTS, Shape } from "ldests";
 
 async function main() {
     // creating a shape with properties
@@ -26,7 +26,7 @@ async function main() {
             "<https://saref.etsi.org/core/hasValue>",
             "<http://www.w3.org/2001/XMLSchema#dateTime>"
         ).build();
-    const stream = await new LDESTS.Builder("http://localhost:3000/test-stream/")
+    const stream = new LDESTS.Builder("http://localhost:3000/test-stream/")
         .config({ 'window': 5, 'resourceSize': 1000, 'resourceCount': 3 })
         .shape(shape)
         .queryUri("<https://saref.etsi.org/core/relatesToProperty>")
@@ -38,13 +38,5 @@ async function main() {
     console.log("Finished main");
 }
 
-function sleep(ms) {
-    return new Promise((resolve) => {
-        setTimeout(resolve, ms);
-    });
-}
-
-// only allowing warnings and errors from ldests to be logged
-Logging.setLogLevel(Logging.LOG);
 // executing the test, letting it exit the process accordingly
 main();

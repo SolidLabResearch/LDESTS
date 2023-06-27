@@ -13,12 +13,19 @@ actual typealias InputStream<T> = ReadableNodeStream<T>
 actual suspend fun NodeStream.join() = suspendCancellableCoroutine { cont: CancellableContinuation<Unit> ->
     cont.invokeOnCancellation {
         // destroying the stream if canceled
+        error("NodeStream", "A node stream has been destroyed!")
         this@join.destroy()
     }
     // alternatively, on("finish") and on("error") could be used
     finished(this@join).then(
-        onFulfilled = { cont.resume(it) },
-        onRejected = { cont.resumeWithException(it) }
+        onFulfilled = {
+            log("NodeStream", "A node stream has finished!")
+            cont.resume(it)
+        },
+        onRejected = {
+            warn("NodeStream", "A node stream `join` has been rejected!")
+            cont.resumeWithException(it)
+        }
     )
 }
 

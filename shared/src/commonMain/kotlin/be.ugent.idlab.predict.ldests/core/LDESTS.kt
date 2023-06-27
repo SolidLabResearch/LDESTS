@@ -60,8 +60,12 @@ class LDESTS private constructor(
         resourceLock.lock()
         warn("Flush: waiting for the stream to finish.")
         stream.flush()
-        warn("Flush: finished, joining the coroutine.")
-        job.join()
+        // TODO: launch jobs to submit data
+        // NOTE: it is not possible to call `job.join()` here when testing, it probably deadlocks the code due
+        //  to the single threaded nature of JS (`flush` waiting on `join`, waiting in `globalscope` which waits on `flush` ?)
+        warn("Flush: completed!")
+        // unlocking again, so new data additions can be made
+        resourceLock.unlock()
     }
 
     suspend fun close() {
@@ -115,10 +119,7 @@ class LDESTS private constructor(
             return this
         }
 
-        // TODO: if shape is null, try reading from the url field above to see if a stream already exists
-        //  in LDESTS itself
-        // TODO: read URL and see if provided shape & present shape are compatible
-        suspend fun create(): LDESTS = shape?.let {
+        fun create(): LDESTS = shape?.let {
             LDESTS(
                 configuration = configuration,
                 shape = it,

@@ -73,7 +73,7 @@ class LDESTSJS private constructor(
         }
 
         @ExternalUse
-        fun create() = promise { LDESTSJS(builder.create()) }
+        fun create() = LDESTSJS(builder.create())
 
     }
 

@@ -2,9 +2,10 @@
 async function * asyncIteratorToGenerator(source) {
    source.read();
    let running = true
-   source.once("end", () => { running = false })
+   const end = new Promise((resolve) => source.once("end", () => resolve(false)))
    while (running) {
-       await new Promise((resolve) => { source.once("readable", resolve) })
+       const hold = new Promise((resolve) => source.once("readable", () => resolve(true)))
+       running = await Promise.race([hold, end])
        let value = source.read()
        while (value != null) {
            yield value
