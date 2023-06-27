@@ -3,7 +3,7 @@ package be.ugent.idlab.predict.ldests.rdf
 import be.ugent.idlab.predict.ldests.lib.rdf.N3Store
 
 
-actual class TripleStore(private val buf: N3Store) {
+actual class TripleStore(val buf: N3Store) {
 
     actual val size
         get() = buf.size

@@ -13,7 +13,8 @@ async function main() {
             ]
         ).constant(
             "<https://saref.etsi.org/core/measurementMadeBy>", [
-                "<https://dahcc.idlab.ugent.be/Ontology/SensorsAndWearables/Smartphone/OnePlus_IN2023>"
+                "<https://dahcc.idlab.ugent.be/Ontology/SensorsAndWearables/Smartphone/OnePlus_IN2023>",
+                "<https://dahcc.idlab.ugent.be/Ontology/SensorsAndWearables/Smartphone/Samsung_S10>",
             ]
         ).constant(
             "<https://saref.etsi.org/core/relatesToProperty>", [
@@ -25,19 +26,14 @@ async function main() {
             "<https://saref.etsi.org/core/hasValue>",
             "<http://www.w3.org/2001/XMLSchema#dateTime>"
         ).build();
-    console.log("Created a first query!:");
-    console.log(shape.query);
-    const shape2 = shape.narrow([
-        { "uri": "<https://saref.etsi.org/core/relatesToProperty>", "values": ["<https://dahcc.idlab.ugent.be/Ontology/SensorsAndWearables/SmartphoneAcceleration/x>"] }
-    ]);
-    console.log("Created a second query!:");
-    console.log(shape2.query);
-    // const stream = await new LDESTS.Builder("http://localhost:3000/test-stream/")
-    //     .shape(shape)
-    //     .create();
-    // stream.append("../DAHCC-Data/dataset_participant_sample_accel_data.nt");
-    // await stream.flush();
-    // await stream.close();
+    const stream = await new LDESTS.Builder("http://localhost:3000/test-stream/")
+        .shape(shape)
+        .queryUri("<https://saref.etsi.org/core/relatesToProperty>")
+        .queryUri("<https://saref.etsi.org/core/measurementMadeBy>")
+        .create();
+    stream.append("../DAHCC-Data/dataset_participant_sample_accel_data.nt");
+    await stream.flush();
+    await stream.close();
     console.log("Finished main");
 }
 

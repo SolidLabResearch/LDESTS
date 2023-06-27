@@ -12,20 +12,6 @@ class ShapeJS private constructor(
     val query: String
         get() = shape.query.sparql
 
-    fun narrow(
-        constraints: Array<dynamic>
-    ): ShapeJS {
-        // TODO: improve this by supporting other property types and syntaxes, or remove this API, as it is intended for internal use anyway
-        var id = shape.properties.size
-        val c = constraints.associate {
-            (it.uri as String).asNamedNode() to Shape.ConstantProperty(
-                value = (it.values as Array<String>).map { it.asNamedNode() },
-                id = id++
-            )
-        }
-        return ShapeJS(shape.narrow(c))
-    }
-
     @ExternalUse
     class Builder(
         type: String,

@@ -33,13 +33,7 @@ actual suspend fun TripleProvider.query(query: Query): InputStream<Binding> {
         is LocalResource -> {
             // using an intermediate actual N3 store generated from the file, which is used as a source for
             //  the engine
-            val store = N3Store()
-            // TODO: move this to the provider itself, so there aren't multiple reads happening
-            createReadFileStream(filepath)
-                .mapToTriples()
-                .on("data") { store.add(it) }
-                .join()
-            log("Read ${store.size} triples locally prior to querying!")
+            val store = data.await().buf
             // keeping the store
             arrayOf(store)
         }

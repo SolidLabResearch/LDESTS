@@ -1,5 +1,6 @@
 package be.ugent.idlab.predict.ldests.core
 
+import be.ugent.idlab.predict.ldests.core.Shape.IdentifierProperty.Companion.BINDING_IDENTIFIER
 import be.ugent.idlab.predict.ldests.core.Shape.Property.Companion.query
 import be.ugent.idlab.predict.ldests.rdf.*
 import kotlinx.datetime.LocalDateTime
@@ -21,7 +22,15 @@ class Shape private constructor(
     class IdentifierProperty(
         val predicate: NamedNodeTerm,
         val type: NamedNodeTerm /* Matches the Literal's `datatype` attr */
-    )
+    ) {
+
+        companion object {
+
+            internal const val BINDING_IDENTIFIER = "id"
+
+        }
+
+    }
 
     /** Other properties, can be defined >= 0 times **/
     sealed class Property(
@@ -44,40 +53,46 @@ class Shape private constructor(
 
     }
 
-    class ConstantProperty(
-        /* NamedNodeTerm, BlankNodeTerm and LiteralTerm possible, but Literal's shouldn't be used */
-        private val value: List<Term>,
-        private val id: Int
-    ): Property(
-        identifier = if (value.size == 1) { /* Not bound externally */ null } else { "c${id}" }
-    ) {
+    class ConstantProperty: Property {
 
-        override val query: String = run {
-            if (value.size == 1) {
-                // simple "assertion" statement suffices
-                value.first().value
-            } else {
-                var filter = "BIND("
-                value.forEachIndexed { index, term ->
-                    val statement = "?cv${id} = ${term.value}, $index"
-                    filter = "${filter}IF($statement, "
-                }
-                /**
-                 * The resulting query looks like ([] already included)
-                 * ```
-                 * [?subject <predicate>] ?cv{id} .
-                 * BIND(
-                 *      IF(?cv{id} = value[0], 0, IF(?cv{id} = value[1], 1, ..., -1)) AS ?c{id}
-                 * )
-                 * ```
-                 */
-                "?cv${id} .\n$filter -1${")".repeat(value.size)} AS ?$identifier)"
+        /* NamedNodeTerm, BlankNodeTerm and LiteralTerm possible, but Literal's shouldn't be used */
+        internal val values: List<Term>
+        private val id: Int?
+        override val query: String
+
+        constructor(values: List<Term>, id: Int): super(identifier = "c${id}") {
+            require(values.size > 1)
+            this.values = values
+            this.id = id
+            // creating the query
+            var filter = "BIND("
+            this.values.forEachIndexed { index, term ->
+                val statement = "?cv${id} = ${term.value}, $index"
+                filter = "${filter}IF($statement, "
             }
+            /**
+             * The resulting query looks like ([] already included)
+             * ```
+             * [?subject <predicate>] ?cv{id} .
+             * BIND(
+             *      IF(?cv{id} = value[0], 0, IF(?cv{id} = value[1], 1, ..., -1)) AS ?c{id}
+             * )
+             * ```
+             */
+            this.query = "?cv${id} .\n$filter -1${")".repeat(this.values.size)} AS ?$identifier)"
+        }
+
+        constructor(value: Term): super(identifier = /* Not bound externally */ null) {
+            this.values = listOf(value)
+            this.id = null
+            // creating the query
+            // simple "assertion" statement suffices, so keeping only the actual term value
+            this.query = value.value
         }
 
         override fun covers(property: Property): Boolean {
             return property is ConstantProperty &&
-                    property.value.all { prop -> value.any { it.value == prop.value } }
+                    property.values.all { prop -> values.any { it.value == prop.value } }
         }
 
     }
@@ -107,6 +122,13 @@ class Shape private constructor(
             build: BuildScope.() -> Shape
         ): Shape = BuildScope(typeIdentifier = ClassProperty(value = type)).build()
 
+        // TODO: check type of term first!
+        fun Binding.id() = LocalDateTime.parse(get(BINDING_IDENTIFIER)!!.value).toEpochMilli()
+
+        private fun LocalDateTime.toEpochMilli(): Long {
+            return this.toInstant(TimeZone.of("UTC")).toEpochMilliseconds()
+        }
+
     }
 
     class BuildScope(private val typeIdentifier: ClassProperty) {
@@ -131,10 +153,17 @@ class Shape private constructor(
         }
 
         fun constant(path: String, vararg value: String) {
-            properties[path.parsed()] = ConstantProperty(
-                value = value.map { it.parsed() },
-                id = properties.size
-            )
+            require(value.isNotEmpty())
+            if (value.size == 1) {
+                properties[path.parsed()] = ConstantProperty(
+                    value = value.first().parsed()
+                )
+            } else {
+                properties[path.parsed()] = ConstantProperty(
+                    values = value.map { it.parsed() },
+                    id = properties.size
+                )
+            }
         }
 
         fun identifier(path: String, type: String): Shape {
@@ -172,7 +201,7 @@ class Shape private constructor(
 
     val query = run {
         // TODO: the resulting query can be improved upon by setting the subject `?s` up front and using `;`
-        val select = "SELECT ?id " + properties.values.mapNotNull { it.identifier }.joinToString(" ") { "?$it" } + " WHERE"
+        val select = "SELECT ?$BINDING_IDENTIFIER " + properties.values.mapNotNull { it.identifier }.joinToString(" ") { "?$it" } + " WHERE"
         val body = "?s a ${typeIdentifier.value.value} .\n?s ${sampleIdentifier.predicate.value} ?id .\n" + properties.asIterable().joinToString("\n") { (it.key to it.value).query() }
         val query = "$select {\n$body\n}"
         Query(
@@ -183,12 +212,6 @@ class Shape private constructor(
 
     fun format(result: Binding): String {
         return "${result.id()}:" + properties.values.filter { it.identifier != null }.joinToString(";") { result[it.identifier!!]!!.value }
-    }
-
-    private fun Binding.id() = LocalDateTime.parse(get("id")!!.value).toEpochMilli()
-
-    private fun LocalDateTime.toEpochMilli(): Long {
-        return this.toInstant(TimeZone.of("UTC")).toEpochMilliseconds()
     }
 
     // TODO: getters for constrained constants, unconstrained constants, ...
@@ -205,4 +228,5 @@ class Shape private constructor(
             properties = properties + constraints
         )
     }
+
 }
