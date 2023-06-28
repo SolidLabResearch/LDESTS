@@ -1,11 +1,9 @@
 package be.ugent.idlab.predict.ldests.core
 
 import be.ugent.idlab.predict.ldests.core.Shape.Companion.id
+import be.ugent.idlab.predict.ldests.core.Shape.Ontology.shape
 import be.ugent.idlab.predict.ldests.core.Stream.Fragment.Rules.Companion.split
-import be.ugent.idlab.predict.ldests.rdf.Binding
-import be.ugent.idlab.predict.ldests.rdf.NamedNodeTerm
-import be.ugent.idlab.predict.ldests.rdf.TripleProvider
-import be.ugent.idlab.predict.ldests.rdf.query
+import be.ugent.idlab.predict.ldests.rdf.*
 import be.ugent.idlab.predict.ldests.util.consume
 import be.ugent.idlab.predict.ldests.util.join
 import be.ugent.idlab.predict.ldests.util.log
@@ -110,6 +108,13 @@ class Stream {
                     // let's hope the data is sorted
                     start = identifier
                 )
+                // FIXME: temp
+                val ttl = TripleWriter {
+                    shape(rules.shape, "http://example.com/my_shape".asNamedNode())
+                }
+                log("Created a resulting shape text for this rule set:")
+                log("\n${ttl.trim()}")
+                // -- //
                 fragments[rules]!!.add(new)
                 listOf(new)
             }

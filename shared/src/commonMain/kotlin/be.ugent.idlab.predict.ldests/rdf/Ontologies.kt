@@ -2,60 +2,40 @@ package be.ugent.idlab.predict.ldests.rdf
 
 object Ontologies {
 
-    /**
-     * Groups all provided triples by their subject
-     */
-    // TODO: remove this in favour of store
-    fun List<Triple>.group(): Collection<List<Triple>> {
-        return groupBy { it.subject.value }.values
-    }
-
     object RDF {
-
-        private const val BASE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-
-        object Predicate {
-
-            const val RDF_IS = "${BASE}type"
-
-        }
-
-        /**
-         * Extracts all type information from the collection of triples. The collection of triples supplied should all
-         *  have the same subject!
-         */
-        fun List<Triple>.types(): List<String> {
-            return filter { it.predicate.value == Predicate.RDF_IS }.map { it.`object`.value }
-        }
-
+        const val PREFIX = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+        val P_TYPE = "${PREFIX}type".asNamedNode()
     }
 
-    object LDP {
-
-        private const val BASE = "http://www.w3.org/ns/ldp#"
-
-        object Object {
-            const val LDP_RESOURCE = "${BASE}Resource"
-            const val LDP_CONTAINER = "${BASE}Container"
-            const val LDP_BASIC_CONTAINER = "${BASE}BasicContainer"
-        }
-
-        /**
-         * Checks if the combination of types matches with that of a file (and NOT a folder!)
-         */
-        fun List<String>.isFile(): Boolean {
-            return any { it == Object.LDP_RESOURCE } &&
-                    none { it == Object.LDP_CONTAINER || it == Object.LDP_BASIC_CONTAINER }
-        }
-
-        /**
-         * Checks if the combination of types matches with that of a folder
-         */
-        fun List<String>.isDirectory(): Boolean {
-            return any { it == Object.LDP_CONTAINER || it == Object.LDP_BASIC_CONTAINER }
-        }
-
+    object LDES {
+        // TODO: types
     }
 
+    object TREE {
+        const val PREFIX = "https://w3id.org/tree#"
+
+        val O_NODE = "${PREFIX}Node".asNamedNode()
+        val P_RELATION = "${PREFIX}relation".asNamedNode()
+        val O_GTOE_RELATION = "${PREFIX}GreaterThanOrEqualToRelation".asNamedNode()
+        val P_VALUE = "${PREFIX}value".asNamedNode()
+        val P_PATH = "${PREFIX}path".asNamedNode()
+        val P_NODE = "${PREFIX}node".asNamedNode()
+    }
+
+    object SHACL {
+        const val PREFIX = "http://www.w3.org/ns/shacl#"
+
+        val O_SHAPE = "${PREFIX}NodeShape".asNamedNode()
+        val O_PROPERTY = "${PREFIX}PropertyShape".asNamedNode()
+        val O_LITERAL = "${PREFIX}Literal".asNamedNode()
+        val O_IRI = "${PREFIX}IRI".asNamedNode()
+        val P_PROPERTY = "${PREFIX}property".asNamedNode()
+        val P_PATH = "${PREFIX}path".asNamedNode()
+        val P_TARGET_CLASS = "${PREFIX}targetClass".asNamedNode()
+        val P_PROPERTY_TYPE = "${PREFIX}nodeKind".asNamedNode()
+        val P_DATA_TYPE = "${PREFIX}datatype".asNamedNode()
+        val P_MIN_COUNT = "${PREFIX}minCount".asNamedNode()
+        val P_MAX_COUNT = "${PREFIX}maxCount".asNamedNode()
+    }
 
 }

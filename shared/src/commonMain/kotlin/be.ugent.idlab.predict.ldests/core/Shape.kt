@@ -115,6 +115,46 @@ class Shape private constructor(
 
     }
 
+    internal object Ontology {
+        // FIXME: use an actual prefix once the ontology is more official
+        const val PREFIX = "https://predict.ugent.be/shape#"
+
+        val O_TYPE = "${PREFIX}BaseShape".asNamedNode()
+        val O_TYPE_ID = "${PREFIX}SampleIdentifier".asNamedNode()
+        val O_TYPE_CONST = "${PREFIX}SampleConstant".asNamedNode()
+        val O_TYPE_VAR = "${PREFIX}SampleVariable".asNamedNode()
+        val P_START_INDEX = "${PREFIX}startIndex".asNamedNode()
+        val P_END_INDEX = "${PREFIX}endIndex".asNamedNode()
+
+        fun TripleWriter.property(property: Pair<NamedNodeTerm, Property>) = blank {
+            add(Ontologies.RDF.P_TYPE, Ontologies.SHACL.O_PROPERTY)
+            when (property.second) {
+                is ConstantProperty -> add(Ontologies.RDF.P_TYPE, O_TYPE_CONST)
+                is VariableProperty -> add(Ontologies.RDF.P_TYPE, O_TYPE_VAR)
+            }
+            // FIXME: Actual correct counts (variable property types)
+            // FIXME: Int literals ?
+            add(Ontologies.SHACL.P_MIN_COUNT, "1".asLiteralNode())
+            add(Ontologies.SHACL.P_MAX_COUNT, "1".asLiteralNode())
+            add(Ontologies.SHACL.P_PATH, property.first)
+            // TODO remaining actual property information based on type:
+            //  CONST -> LUT, nodekind (IRI most likely) ...
+            //  VAR -> type, start & end
+        }
+
+        fun TripleWriter.shape(shape: Shape, name: NamedNodeTerm) {
+            add(name, Ontologies.RDF.P_TYPE, O_TYPE)
+            add(
+                subject = "http://example.com/test".asNamedNode(),
+                predicate = Ontologies.SHACL.P_PROPERTY,
+                `object` = shape.properties
+                    .map { prop -> property(prop.toPair()) }
+                    .toWritableList()
+            )
+        }
+
+    }
+
     companion object {
 
         fun create(
@@ -187,13 +227,6 @@ class Shape private constructor(
         }
 
     }
-
-    internal object Ontology {
-
-        // TODO: various members from the ontology (constants, tree path, variables)
-
-    }
-
 
     /**
      * A generated query that can be used to extract all relevant fields from a collection of triples

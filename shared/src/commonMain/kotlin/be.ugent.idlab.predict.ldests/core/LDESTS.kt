@@ -30,6 +30,27 @@ class LDESTS private constructor(
     data: List<TripleProvider> = listOf()
 ) {
 
+    internal object Ontology {
+
+        // FIXME: use an actual prefix once the ontology is more official
+        const val PREFIX = "https://predict.ugent.be/ldests#"
+
+        object Stream {
+            const val O_TYPE = "${PREFIX}Node"
+            const val P_SHAPE = "${PREFIX}shape"
+        }
+
+        object Fragment {
+            const val O_TYPE = "${PREFIX}Fragment"
+            const val P_CONSTRAINTS = "${PREFIX}overrides" // TODO: get a better name here
+            const val P_LUT = "${PREFIX}iris" // TODO: get a better name here
+            const val P_HAS = "${PREFIX}contains"
+        }
+
+        // TODO: functions similar to `Shape.Ontology` for writing
+
+    }
+
     // keeps track of all IO (local & remote) regarding this LDESTS stream, hosting the jobs of the publisher & reader
     //  as well
     private val job = Job()

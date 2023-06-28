@@ -77,3 +77,26 @@ external class N3Store {
     fun getObjects(): Array<N3Term>
 
 }
+
+@JsName("Writer")
+external class N3Writer(options: dynamic) {
+
+    // an intermediate result, from either a blank node or a list
+    interface IntermediateResult
+
+    @JsName("addQuad")
+    fun add(subject: N3Term, predicate: N3Term, `object`: N3Term)
+
+    @JsName("addQuad")
+    fun add(subject: N3Term, predicate: N3Term, `object`: IntermediateResult)
+
+    @JsName("blank")
+    fun createBlank(properties: Array<dynamic /* predicate: N3Term, `object`: N3Term | IntermediateResult */>): IntermediateResult
+
+    @JsName("list")
+    fun createList(properties: Array<N3Term>): IntermediateResult
+
+    @JsName("end")
+    fun finish(callback: (error: Error?, result: String) -> Unit)
+
+}

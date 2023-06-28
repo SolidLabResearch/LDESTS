@@ -5,5 +5,5 @@ package be.ugent.idlab.predict.ldests.lib.rdf
 @JsName("namedNode")
 external fun createN3NamedNode(value: String): N3NamedNode
 
-@JsName("literalNode")
+@JsName("literal")
 external fun createN3LiteralNode(value: String): N3Literal
