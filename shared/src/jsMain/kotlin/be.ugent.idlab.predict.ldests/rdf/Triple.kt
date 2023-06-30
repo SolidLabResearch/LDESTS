@@ -8,6 +8,14 @@ actual typealias NamedNodeTerm = N3NamedNode
 actual typealias BlankNodeTerm = N3BlankNode
 actual typealias LiteralTerm = N3Literal
 
-actual fun createNamedNodeTerm(value: String): NamedNodeTerm = createN3NamedNode(value)
+actual fun String.asNamedNode() = createN3NamedNode(this)
 
-actual fun createLiteralNodeTerm(value: String): LiteralTerm = createN3LiteralNode(value)
+actual fun String.asLiteral() = createN3Literal(this)
+
+actual fun Int.asLiteral() = createN3Literal(this)
+
+actual fun Long.asLiteral() = createN3Literal(this)
+
+actual fun Float.asLiteral() = createN3Literal(this)
+
+actual fun Double.asLiteral() = createN3Literal(this)

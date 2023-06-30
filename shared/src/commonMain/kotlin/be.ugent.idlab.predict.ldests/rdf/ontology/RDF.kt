@@ -1,0 +1,11 @@
+package be.ugent.idlab.predict.ldests.rdf.ontology
+
+import be.ugent.idlab.predict.ldests.rdf.asNamedNode
+
+object RDF: Ontology {
+
+    override val prefix = "rdf"
+    override val base_uri = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+    val type = "${base_uri}type".asNamedNode()
+
+}

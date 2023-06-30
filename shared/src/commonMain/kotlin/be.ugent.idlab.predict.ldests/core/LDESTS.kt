@@ -1,9 +1,10 @@
 package be.ugent.idlab.predict.ldests.core
 
-import be.ugent.idlab.predict.ldests.core.Stream.Fragment.Rules.Companion.split
+import be.ugent.idlab.predict.ldests.core.Stream.Companion.split
 import be.ugent.idlab.predict.ldests.rdf.LocalResource
 import be.ugent.idlab.predict.ldests.rdf.NamedNodeTerm
 import be.ugent.idlab.predict.ldests.rdf.TripleProvider
+import be.ugent.idlab.predict.ldests.rdf.asNamedNode
 import be.ugent.idlab.predict.ldests.util.log
 import be.ugent.idlab.predict.ldests.util.warn
 import kotlinx.coroutines.*
@@ -11,6 +12,10 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 class LDESTS private constructor(
+    /**
+     * The publishing URL, also used as stream uri
+     */
+    url: String,
     /**
      * Stream-specific configuration
      */
@@ -23,33 +28,12 @@ class LDESTS private constructor(
     /**
      * The rules for creating new fragments
      */
-    rules: List<Stream.Fragment.Rules>,
+    rules: List<Stream.Rules>,
     /**
      * Initial data that can already be published to the stream, generating the first fragment(s) if necessary
      */
     data: List<TripleProvider> = listOf()
 ) {
-
-    internal object Ontology {
-
-        // FIXME: use an actual prefix once the ontology is more official
-        const val PREFIX = "https://predict.ugent.be/ldests#"
-
-        object Stream {
-            const val O_TYPE = "${PREFIX}Node"
-            const val P_SHAPE = "${PREFIX}shape"
-        }
-
-        object Fragment {
-            const val O_TYPE = "${PREFIX}Fragment"
-            const val P_CONSTRAINTS = "${PREFIX}overrides" // TODO: get a better name here
-            const val P_LUT = "${PREFIX}iris" // TODO: get a better name here
-            const val P_HAS = "${PREFIX}contains"
-        }
-
-        // TODO: functions similar to `Shape.Ontology` for writing
-
-    }
 
     // keeps track of all IO (local & remote) regarding this LDESTS stream, hosting the jobs of the publisher & reader
     //  as well
@@ -59,6 +43,7 @@ class LDESTS private constructor(
     private val resourceLock = Mutex()
 
     private val stream = Stream(
+        uri = url.asNamedNode(),
         configuration = configuration,
         shape = shape,
         rules = rules
@@ -81,6 +66,7 @@ class LDESTS private constructor(
         resourceLock.lock()
         warn("Flush: waiting for the stream to finish.")
         stream.flush()
+        Publisher.flush()
         // TODO: launch jobs to submit data
         // NOTE: it is not possible to call `job.join()` here when testing, it probably deadlocks the code due
         //  to the single threaded nature of JS (`flush` waiting on `join`, waiting in `globalscope` which waits on `flush` ?)
@@ -142,6 +128,7 @@ class LDESTS private constructor(
 
         fun create(): LDESTS = shape?.let {
             LDESTS(
+                url = url,
                 configuration = configuration,
                 shape = it,
                 rules = it.split(*queryUris.toTypedArray())

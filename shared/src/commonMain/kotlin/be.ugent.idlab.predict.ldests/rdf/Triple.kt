@@ -19,11 +19,15 @@ expect interface LiteralTerm: Term {
     val datatype: NamedNodeTerm
 }
 
-expect fun createNamedNodeTerm(value: String): NamedNodeTerm
-
-expect fun createLiteralNodeTerm(value: String): LiteralTerm
-
 // helpers for the methods above
-fun String.asNamedNode() = createNamedNodeTerm(this)
+expect fun String.asNamedNode(): NamedNodeTerm
 
-fun String.asLiteralNode() = createLiteralNodeTerm(this)
+expect fun String.asLiteral(): LiteralTerm
+
+expect fun Int.asLiteral(): LiteralTerm
+
+expect fun Long.asLiteral(): LiteralTerm
+
+expect fun Float.asLiteral(): LiteralTerm
+
+expect fun Double.asLiteral(): LiteralTerm
