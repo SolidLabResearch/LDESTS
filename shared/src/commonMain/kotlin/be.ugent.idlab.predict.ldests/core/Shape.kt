@@ -3,9 +3,6 @@ package be.ugent.idlab.predict.ldests.core
 import be.ugent.idlab.predict.ldests.core.Shape.IdentifierProperty.Companion.BINDING_IDENTIFIER
 import be.ugent.idlab.predict.ldests.core.Shape.Property.Companion.query
 import be.ugent.idlab.predict.ldests.rdf.*
-import be.ugent.idlab.predict.ldests.rdf.ontology.RDF
-import be.ugent.idlab.predict.ldests.rdf.ontology.SHACL
-import be.ugent.idlab.predict.ldests.rdf.ontology.SHAPETS
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
@@ -123,56 +120,6 @@ class Shape private constructor(
             type: NamedNodeTerm,
             build: BuildScope.() -> Shape
         ): Shape = BuildScope(typeIdentifier = ClassProperty(value = type)).build()
-
-        fun Turtle.shape(subject: NamedNodeTerm, shape: Shape) {
-            +subject has RDF.type being SHACL.Shape
-            +subject has RDF.type being SHAPETS.Type
-            +subject has SHACL.targetClass being shape.typeIdentifier.value
-            +subject has SHACL.property being property(shape.sampleIdentifier)
-            shape.properties.forEach {
-                +subject has SHACL.property being property(it)
-            }
-        }
-
-        private fun Turtle.property(property: IdentifierProperty) = blank {
-            +RDF.type being SHACL.Property
-            +RDF.type being SHAPETS.Identifier
-            +SHACL.path being property.predicate
-            +SHACL.dataType being SHACL.Literal
-            +SHACL.minCount being 1
-            +SHACL.maxCount being 1
-        }
-
-        internal fun Turtle.property(
-            property: Map.Entry<NamedNodeTerm, Property>
-        ) = when (val prop = property.value) {
-            is ConstantProperty -> property(property.key to prop)
-            is VariableProperty -> property(property.key to prop)
-        }
-
-        private fun Turtle.property(property: Pair<NamedNodeTerm, ConstantProperty>) = blank {
-            +RDF.type being SHACL.Property
-            +RDF.type being SHAPETS.Constant
-            +SHACL.path being property.first
-            +SHACL.minCount being 1
-            +SHACL.maxCount being 1
-            // FIXME: support for non-IRI constants?
-            +SHACL.nodeKind being SHACL.IRI
-            // FIXME: what to do with a single value? same or different path?
-            +SHAPETS.constantValues being list(property.second.values)
-        }
-
-        private fun Turtle.property(property: Pair<NamedNodeTerm, VariableProperty>) = blank {
-            +RDF.type being SHACL.Property
-            +RDF.type being SHAPETS.Variable
-            +SHACL.path being property.first
-            // FIXME: enforced lower bound
-            +SHACL.minCount being 1
-            +SHACL.maxCount being property.second.count
-            +SHACL.nodeKind being SHACL.Literal
-            +SHAPETS.startIndex being 0 // FIXME configure this in the property, set when adding the property to the shape
-            +SHAPETS.endIndex being 0 + property.second.count // FIXME: see note above
-        }
 
         fun Binding.id() = LocalDateTime.parse(get(BINDING_IDENTIFIER)!!.value).toEpochMilli()
 

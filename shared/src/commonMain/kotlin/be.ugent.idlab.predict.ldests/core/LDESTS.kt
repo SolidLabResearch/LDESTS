@@ -1,6 +1,5 @@
 package be.ugent.idlab.predict.ldests.core
 
-import be.ugent.idlab.predict.ldests.core.Stream.Companion.split
 import be.ugent.idlab.predict.ldests.rdf.LocalResource
 import be.ugent.idlab.predict.ldests.rdf.NamedNodeTerm
 import be.ugent.idlab.predict.ldests.rdf.TripleProvider
@@ -13,26 +12,9 @@ import kotlinx.coroutines.sync.withLock
 
 class LDESTS private constructor(
     /**
-     * The publishing URL, also used to form the stream uri
+     * The stream itself, constructed outside of the LDESTS as this is an async operation
      */
-    url: String,
-    /**
-     * The name of the stream, combined with the URL to form the URI
-     */
-    name: String,
-    /**
-     * Stream-specific configuration
-     */
-    configuration: Stream.Configuration,
-    /**
-     * The generic "global" shape, gets converted to individual SPARQL-queries after applying fragment-based
-     * shape properties
-     */
-    shape: Shape,
-    /**
-     * The rules for creating new fragments
-     */
-    rules: List<Stream.Rules>,
+    private val stream: Stream,
     /**
      * Initial data that can already be published to the stream, generating the first fragment(s) if necessary
      */
@@ -45,14 +27,6 @@ class LDESTS private constructor(
     private val scope = CoroutineScope(Dispatchers.Unconfined + job)
     // lock responsible for all resources that aren't used by the stream (yet)
     private val resourceLock = Mutex()
-
-    private val stream = Stream(
-        publisher = SolidPublisher(url),
-        name = name,
-        configuration = configuration,
-        shape = shape,
-        rules = rules.toMutableList()
-    )
 
     fun append(filename: String) {
         scope.launch {
@@ -131,16 +105,18 @@ class LDESTS private constructor(
         }
 
         suspend fun create(): LDESTS = shape?.let {
-            val ldests = LDESTS(
+            val stream = Stream.create(
                 name = name,
-                url = url,
                 configuration = configuration,
                 shape = it,
                 rules = it.split(*queryUris.toTypedArray())
             )
-            // TODO: better init here
-            ldests.stream.init()
-            ldests
+            // TODO: make this a build option
+            stream.publishTo(SolidPublisher(url = url))
+            LDESTS(
+                stream = stream,
+                // TODO: initial set of data providers
+            )
         } ?: throw Error("Invalid Builder() usage!")
 
     }

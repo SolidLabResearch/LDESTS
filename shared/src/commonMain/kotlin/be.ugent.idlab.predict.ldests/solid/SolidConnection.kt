@@ -21,13 +21,23 @@ class SolidConnection(
             TODO("Not yet implemented")
         }
 
-        open suspend fun write(block: Turtle.() -> Unit) {
+        open suspend fun write(block: Turtle.() -> Unit): Int {
             // `PUT`ting the resource directly
-            request(
+            return request(
                 type = RequestType.PUT,
                 url = url,
                 headers = listOf("Content-type" to "text/turtle"),
                 body = Turtle(prefixes = Ontology.PREFIXES, block = block)
+            )
+        }
+
+        open suspend fun write(turtle: String): Int {
+            // `PUT`ting the resource directly
+            return request(
+                type = RequestType.PUT,
+                url = url,
+                headers = listOf("Content-type" to "text/turtle"),
+                body = turtle
             )
         }
 
@@ -38,7 +48,7 @@ class SolidConnection(
         url: String
     ): Resource(url) {
 
-        override suspend fun write(block: Turtle.() -> Unit) {
+        override suspend fun write(block: Turtle.() -> Unit): Int {
             // creating the folder
             request(
                 type = RequestType.PUT,
@@ -47,12 +57,30 @@ class SolidConnection(
                 body = ""
             )
             // setting the .meta file for the additional data
-            request(
+            return request(
                 type = RequestType.PATCH,
                 url = "$url.meta",
                 headers = listOf("Content-type" to "application/sparql-update"),
                 // no prefixes used here, as the `INSERT DATA {}` construct doesn't like the `@prefix` syntax
                 body = "INSERT DATA { ${Turtle(block = block)} }"
+            )
+        }
+
+        override suspend fun write(turtle: String): Int {
+            // creating the folder
+            request(
+                type = RequestType.PUT,
+                url = url,
+                headers = listOf(),
+                body = ""
+            )
+            // setting the .meta file for the additional data
+            return request(
+                type = RequestType.PATCH,
+                url = "$url.meta",
+                headers = listOf("Content-type" to "application/sparql-update"),
+                // no prefixes used here, as the `INSERT DATA {}` construct doesn't like the `@prefix` syntax
+                body = "INSERT DATA { $turtle }"
             )
         }
 
@@ -70,6 +98,20 @@ class SolidConnection(
 
         fun resource(name: String) = Resource(url = "$url$name")
 
+    }
+
+    /**
+     * Returns a usable resource (either regular or folder) depending on the passed URL
+     */
+    fun fromUrl(url: String): Resource {
+        require(url.startsWith(this.root.url))
+        // depending on the url (trailing / or not), either a folder or resource is constructed
+        // TODO: check with remote on existence (throwing) & type (instead of simply looking at the trailing char)
+        return if (url.endsWith('/')) {
+            Folder(url = url)
+        } else {
+            Resource(url = url)
+        }
     }
 
 }
