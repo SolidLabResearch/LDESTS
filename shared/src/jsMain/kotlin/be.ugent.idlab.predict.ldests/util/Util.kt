@@ -6,6 +6,22 @@ import kotlin.js.Date
 
 private val _start = Date.now()
 
+fun dyn(vararg options: Pair<String, dynamic>): dynamic {
+    val value: dynamic = Any()
+    options.forEach { value[it.first] = it.second }
+    return value
+}
+
+fun dyn(options: Iterable<Pair<String, dynamic>>): dynamic {
+    val value: dynamic = Any()
+    options.forEach { value[it.first] = it.second }
+    return value
+}
+
+fun Iterable<Pair<String, dynamic>>.toDynamic(): dynamic {
+    return dyn(this)
+}
+
 fun time(): String = (Date.now() - _start).toString().padStart(6, '0')
 
 fun fmt(level: String, loc: String?, text: String): String {

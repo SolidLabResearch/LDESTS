@@ -1,9 +1,8 @@
 package be.ugent.idlab.predict.ldests.core
 
-import be.ugent.idlab.predict.ldests.core.Publisher.publish
 import be.ugent.idlab.predict.ldests.core.Shape.Companion.id
 import be.ugent.idlab.predict.ldests.core.Shape.Companion.shape
-import be.ugent.idlab.predict.ldests.core.Stream.Rules.Companion.constraints
+import be.ugent.idlab.predict.ldests.core.Stream.Rules.Companion.constraint
 import be.ugent.idlab.predict.ldests.rdf.*
 import be.ugent.idlab.predict.ldests.rdf.ontology.*
 import be.ugent.idlab.predict.ldests.rdf.ontology.LDESTS
@@ -20,12 +19,18 @@ import kotlinx.coroutines.sync.withLock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 
-class Stream {
+class Stream internal constructor(
+    private val publisher: Publisher,
+    internal val name: String,
+    private val configuration: Configuration,
+    private val shape: Shape,
+    // TODO: check the rules w/ remote stream, if present, and change them here prior to publishing if necessary
+    // TODO: properly function when no rules exist, making a single entry w/ empty constraints
+    rules: List<Rules>
+) {
 
-    internal val uri: NamedNodeTerm
-    internal val url: String
-    private val configuration: Configuration
-    private val shape: Shape
+    val url = "${publisher.root}$name/"
+    private val ruleSet = rules.toMutableList()
     // "global" lock, active while data is being added/flushed/...
     private val globalLock = Mutex()
     // "inner" lock, active while individual fragments are being updated
@@ -35,35 +40,27 @@ class Stream {
     //  inner          U            |           U & L             |          U & L          |  U
     private val fragments: MutableMap<Rules, MutableList<Fragment>> = mutableMapOf()
 
-    // TODO: check the rules w/ remote stream, if present, and change them here prior to publishing if necessary
-    // TODO: properly function when no rules exist, making a single entry w/ empty constraints
-    private val ruleSet: MutableList<Rules>
-
     internal constructor(
-        uri: NamedNodeTerm,
-        configuration: Configuration,
-        shape: Shape,
-        rules: List<Rules>
-    ) {
-        this.url = if (uri.value.last() != '/') uri.value else uri.value.dropLast(1)
-        this.uri = (this.url + '/').asNamedNode()
-        this.configuration = configuration
-        this.shape = shape
-        this.ruleSet = rules.toMutableList()
-    }
-
-    internal constructor(
-        uri: NamedNodeTerm,
+        publisher: Publisher,
+        name: String,
         configuration: Configuration,
         shape: Shape,
         queryUris: List<NamedNodeTerm>
-    ) {
-        this.url = if (uri.value.last() != '/') uri.value else uri.value.dropLast(1)
-        this.uri = (this.url + '/').asNamedNode()
-        this.configuration = configuration
-        this.shape = shape
+    ): this(
+        publisher = publisher,
+        name = name,
+        configuration = configuration,
+        shape = shape,
         // FIXME: use all! uris from the list
-        this.ruleSet = this.shape.split(queryUris.first()).toMutableList()
+        rules = shape.split(queryUris)
+    )
+
+    // TODO: ctors through comp obj, suspend there, along with remote config sync/check
+    suspend fun init() {
+        // we have to publish the stream once, future fragments are added through LDP automatically
+        with (publisher) {
+            publish()
+        }
     }
 
     suspend fun flush() = globalLock.withLock {
@@ -113,15 +110,19 @@ class Stream {
                 // using the first sample to create a fragment id with
                 val identifier = data.id()
                 val new = Fragment(
-                    id = "f_${identifier}_${rules.id}",
+                    name = "f_${identifier}_${rules.id}",
                     configuration = configuration,
                     rules = rules,
                     // let's hope the data is sorted
                     start = identifier
                 )
+                new.init()
+                with (publisher) {
+                    publish {
+                        +this@Stream.url has TREE.relation being fragmentRelation(new)
+                    }
+                }
                 fragments[rules]!!.add(new)
-                // we have to "re-publish" the stream so the new fragment can be discovered
-                publish()
                 listOf(new)
             }
     }
@@ -149,7 +150,7 @@ class Stream {
     }
 
     class Rules(
-        private val constraints: Map<NamedNodeTerm, Shape.ConstantProperty>,
+        internal val constraints: Map<NamedNodeTerm, Shape.ConstantProperty>,
         parent: Shape
     ) {
 
@@ -166,13 +167,7 @@ class Stream {
 
         companion object {
 
-            fun Turtle.constraints(
-                rules: Rules
-            ) = list(
-                rules.constraints.map { constraint(it) }
-            )
-
-            private fun Turtle.constraint(constraint: Map.Entry<NamedNodeTerm, Shape.ConstantProperty>) = blank {
+            internal fun Turtle.constraint(constraint: Map.Entry<NamedNodeTerm, Shape.ConstantProperty>) = blank {
                 +SHACL.path being constraint.key
                 +SHAPETS.constantValue being list(constraint.value.values)
             }
@@ -182,19 +177,18 @@ class Stream {
     }
 
     inner class Fragment internal constructor(
-        id: String,
+        internal val name: String,
         // TODO: generic for timestamp, geospatial, ... support?
         internal val start: Long,
         private val configuration: Configuration,
         internal val rules: Rules
     ) {
 
-        init {
-            log("Created a fragment with id `$id`")
-        }
+        val url = "${this@Stream.url}$name/"
 
-        internal val uri = "${this@Stream.uri.value}$id/".asNamedNode()
-        internal val url = "${this@Stream.url}$id"
+        init {
+            log("Created a fragment with id `$name`")
+        }
 
         val shape: Shape
             get() = rules.shape
@@ -204,11 +198,10 @@ class Stream {
         //  fragment metadata, w/o keeping the resource's data in memory/locally (sealed might even be overkill, publish
         //  can keep in memory too)
         inner class Resource(
-            id: String
+            name: String
         ) {
 
-            internal val uri = "${this@Fragment.uri.value}$id".asNamedNode()
-            internal val url = "${this@Fragment.url}/$id"
+            val url = "${this@Fragment.url}$name"
 
             var count: Int = 0
                 private set
@@ -227,20 +220,26 @@ class Stream {
         private val lock = Mutex()
 
         // all fragment content that is COMPLETE!
-        // TODO not yet published
-        internal val resources = mutableListOf<Resource>()
+        private var resourceCount = 0
         // FIXME improve ID gen
         private var buf = generateResource()
 
         private val range = start .. start + configuration.window.inWholeMilliseconds
+
+        // TODO: through comp obj init suspend func
+        suspend fun init() {
+            with (publisher) {
+                publish()
+            }
+        }
 
         /**
          * Returns true if this fragment can store the given data
          */
         internal fun canStore(data: Binding): Boolean =
             data.id() in range && (
-                resources.size < configuration.resourceCount ||
-                resources.any { it.count < configuration.resourceSize }
+                  resourceCount < configuration.resourceCount ||
+                  buf.count < configuration.resourceSize
             )
 
         /**
@@ -252,13 +251,11 @@ class Stream {
             if (buf.count == configuration.resourceSize) {
                 // TODO: see note about resources above (make it sparse here, `publish` needs to keep enough in memory
                 //  to succeed)
-                resources.add(buf)
-                // a new resource for this fragment is available on the remote, so updating the fragment as well
-                buf.publish()
-                publish()
+                with (publisher) {
+                    buf.publish()
+                }
                 // creating a new resource buffer (TODO: more efficient clearing to reuse memory would be better later)
                 buf = generateResource()
-                log("Completed a buffer for fragment `${uri.value}`. Currently ${resources.size} resources can be published")
             }
         }
 
@@ -267,17 +264,15 @@ class Stream {
          */
         internal suspend fun flush() = lock.withLock {
             if (buf.count == 0) {
-                log("Nothing to flush for fragment `${uri.value}`. Currently ${resources.size} resources can be published")
                 return@withLock
             }
-            resources.add(buf)
-            buf.publish()
-            publish()
+            with (publisher) {
+                buf.publish()
+            }
             buf = generateResource()
-            log("Flushed the internal buffer for fragment `${uri.value}`. Currently ${resources.size} resources can be published")
         }
 
-        private fun generateResource() = Resource("ID_${resources.size}")
+        private fun generateResource() = Resource("ID_${resourceCount++}")
 
     }
 
@@ -288,7 +283,14 @@ class Stream {
          *  provided `uri` can be used to query over (e.g. constant `ex:prop` with 3 possible values, results in
          *  3 rules dividing `ex:prop` over the three possible values, so up to 3 fragments can be made)
          */
-        fun Shape.split(vararg uris: NamedNodeTerm): List<Rules> {
+        fun Shape.split(vararg uris: NamedNodeTerm) = split(uris.toList())
+
+        /**
+         * Divides the given shape into various rules that can be used to create new fragments with, so the
+         *  provided `uri` can be used to query over (e.g. constant `ex:prop` with 3 possible values, results in
+         *  3 rules dividing `ex:prop` over the three possible values, so up to 3 fragments can be made)
+         */
+        fun Shape.split(uris: Collection<NamedNodeTerm>): List<Rules> {
             if (uris.isEmpty()) {
                 return listOf(
                     Rules(
@@ -318,33 +320,34 @@ class Stream {
 
         fun Turtle.stream(stream: Stream) {
             // creating the shape first, in the same document for now
-            val shape = "${stream.uri.value}shape".asNamedNode()
+            val shape = "${stream.url}shape".asNamedNode()
             shape(subject = shape, shape = stream.shape)
+            val subj = stream.url.asNamedNode()
             // associating the shape from above with the stream here
-            +stream.uri has RDF.type being list(TREE.Node, LDESTS.StreamType)
-            +stream.uri has LDESTS.shape being shape
-            +stream.uri has TREE.relation being list(
-                stream.fragments.values.flatten().distinctBy { it.uri }.map { fragmentRelation(it) }
-            )
+            +subj has RDF.type being TREE.Node
+            +subj has RDF.type being LDESTS.StreamType
+            +subj has LDESTS.shape being shape
         }
 
-        private fun Turtle.fragmentRelation(fragment: Fragment) = blank {
+        internal fun Turtle.fragmentRelation(fragment: Fragment) = blank {
             +RDF.type being TREE.GreaterThanOrEqualToRelation // FIXME other relations? custom relation?
             +TREE.value being fragment.start
             +TREE.path being fragment.shape.sampleIdentifier.predicate
-            +TREE.node being fragment.uri
+            +TREE.node being fragment.url.asNamedNode()
         }
 
         fun Turtle.fragment(fragment: Fragment) {
-            +fragment.uri has RDF.type being LDESTS.FragmentType
-            +fragment.uri has LDESTS.constraints being constraints(fragment.rules)
-            +fragment.uri has LDESTS.resources being list(fragment.resources.map { it.uri })
+            val subj = fragment.url.asNamedNode()
+            +subj has RDF.type being LDESTS.FragmentType
+            fragment.rules.constraints.forEach {
+                +subj has LDESTS.constraints being constraint(it)
+            }
         }
 
         fun Turtle.resource(resource: Fragment.Resource) {
-            +resource.uri has RDF.type being LDESTS.ResourceType
-//            +resource.uri has LDESTS.contents being resource.data.asLiteral()
-            +resource.uri has LDESTS.contents being "[omitted]".asLiteral()
+            val subj = resource.url.asNamedNode()
+            +subj has RDF.type being LDESTS.ResourceType
+            +subj has LDESTS.contents being resource.data.asLiteral()
         }
 
     }

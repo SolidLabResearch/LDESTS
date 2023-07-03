@@ -1,7 +1,5 @@
 package be.ugent.idlab.predict.ldests.rdf
 
-import be.ugent.idlab.predict.ldests.rdf.ontology.Ontology
-
 expect class Turtle {
 
     class Subject {
@@ -61,7 +59,7 @@ expect class Turtle {
     companion object {
 
         suspend operator fun invoke(
-            vararg prefixes: Pair<String, String> = Ontology.PREFIXES,
+            vararg prefixes: Pair<String, String>,
             block: Turtle.() -> Unit
         ): String
 

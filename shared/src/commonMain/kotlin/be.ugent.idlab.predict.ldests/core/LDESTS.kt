@@ -4,7 +4,7 @@ import be.ugent.idlab.predict.ldests.core.Stream.Companion.split
 import be.ugent.idlab.predict.ldests.rdf.LocalResource
 import be.ugent.idlab.predict.ldests.rdf.NamedNodeTerm
 import be.ugent.idlab.predict.ldests.rdf.TripleProvider
-import be.ugent.idlab.predict.ldests.rdf.asNamedNode
+import be.ugent.idlab.predict.ldests.solid.SolidPublisher
 import be.ugent.idlab.predict.ldests.util.log
 import be.ugent.idlab.predict.ldests.util.warn
 import kotlinx.coroutines.*
@@ -13,9 +13,13 @@ import kotlinx.coroutines.sync.withLock
 
 class LDESTS private constructor(
     /**
-     * The publishing URL, also used as stream uri
+     * The publishing URL, also used to form the stream uri
      */
     url: String,
+    /**
+     * The name of the stream, combined with the URL to form the URI
+     */
+    name: String,
     /**
      * Stream-specific configuration
      */
@@ -43,10 +47,11 @@ class LDESTS private constructor(
     private val resourceLock = Mutex()
 
     private val stream = Stream(
-        uri = url.asNamedNode(),
+        publisher = SolidPublisher(url),
+        name = name,
         configuration = configuration,
         shape = shape,
-        rules = rules
+        rules = rules.toMutableList()
     )
 
     fun append(filename: String) {
@@ -66,8 +71,6 @@ class LDESTS private constructor(
         resourceLock.lock()
         warn("Flush: waiting for the stream to finish.")
         stream.flush()
-        Publisher.flush()
-        // TODO: launch jobs to submit data
         // NOTE: it is not possible to call `job.join()` here when testing, it probably deadlocks the code due
         //  to the single threaded nature of JS (`flush` waiting on `join`, waiting in `globalscope` which waits on `flush` ?)
         warn("Flush: completed!")
@@ -82,7 +85,8 @@ class LDESTS private constructor(
     }
 
     class Builder(
-        private val url: String /*TODO: Solid conn, url somehow or filepath/directory*/
+        private val name: String,
+        private val url: String /* TODO: identification of publisher type */
     ) {
 
         private var configuration = Stream.Configuration()
@@ -126,13 +130,17 @@ class LDESTS private constructor(
             return this
         }
 
-        fun create(): LDESTS = shape?.let {
-            LDESTS(
+        suspend fun create(): LDESTS = shape?.let {
+            val ldests = LDESTS(
+                name = name,
                 url = url,
                 configuration = configuration,
                 shape = it,
                 rules = it.split(*queryUris.toTypedArray())
             )
+            // TODO: better init here
+            ldests.stream.init()
+            ldests
         } ?: throw Error("Invalid Builder() usage!")
 
     }

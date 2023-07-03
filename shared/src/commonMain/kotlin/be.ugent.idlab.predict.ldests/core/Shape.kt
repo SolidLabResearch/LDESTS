@@ -112,8 +112,7 @@ class Shape private constructor(
 
         override fun covers(property: Property): Boolean {
             return property is VariableProperty &&
-                    property.type.type == "LiteralTerm" &&
-                    (property.type as LiteralTerm).datatype == type
+                    property.type == type
         }
 
     }
@@ -126,15 +125,18 @@ class Shape private constructor(
         ): Shape = BuildScope(typeIdentifier = ClassProperty(value = type)).build()
 
         fun Turtle.shape(subject: NamedNodeTerm, shape: Shape) {
-            +subject has RDF.type being list(SHACL.Shape, SHAPETS.Type)
+            +subject has RDF.type being SHACL.Shape
+            +subject has RDF.type being SHAPETS.Type
             +subject has SHACL.targetClass being shape.typeIdentifier.value
-            +subject has SHACL.property being list(
-                items = shape.properties.map { prop -> property(prop) } + property(shape.sampleIdentifier)
-            )
+            +subject has SHACL.property being property(shape.sampleIdentifier)
+            shape.properties.forEach {
+                +subject has SHACL.property being property(it)
+            }
         }
 
         private fun Turtle.property(property: IdentifierProperty) = blank {
-            +RDF.type being list(SHACL.Property, SHAPETS.Identifier)
+            +RDF.type being SHACL.Property
+            +RDF.type being SHAPETS.Identifier
             +SHACL.path being property.predicate
             +SHACL.dataType being SHACL.Literal
             +SHACL.minCount being 1
@@ -149,7 +151,8 @@ class Shape private constructor(
         }
 
         private fun Turtle.property(property: Pair<NamedNodeTerm, ConstantProperty>) = blank {
-            +RDF.type being list(SHACL.Property, SHAPETS.Constant)
+            +RDF.type being SHACL.Property
+            +RDF.type being SHAPETS.Constant
             +SHACL.path being property.first
             +SHACL.minCount being 1
             +SHACL.maxCount being 1
@@ -160,7 +163,8 @@ class Shape private constructor(
         }
 
         private fun Turtle.property(property: Pair<NamedNodeTerm, VariableProperty>) = blank {
-            +RDF.type being list(SHACL.Property, SHAPETS.Variable)
+            +RDF.type being SHACL.Property
+            +RDF.type being SHAPETS.Variable
             +SHACL.path being property.first
             // FIXME: enforced lower bound
             +SHACL.minCount being 1

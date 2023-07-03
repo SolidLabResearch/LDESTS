@@ -28,9 +28,9 @@ class LDESTSJS private constructor(
 
     @JsName("Builder")
     @ExternalUse
-    class BuilderJS(url: String) {
+    class BuilderJS(name: String, url: String) {
 
-        private val builder = LDESTS.Builder(url)
+        private val builder = LDESTS.Builder(name = name, url = url)
 
         @ExternalUse
         fun config(config: dynamic): BuilderJS {
@@ -73,7 +73,7 @@ class LDESTSJS private constructor(
         }
 
         @ExternalUse
-        fun create() = LDESTSJS(builder.create())
+        fun create() = promise { LDESTSJS(builder.create()) }
 
     }
 
