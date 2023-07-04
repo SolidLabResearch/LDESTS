@@ -26,11 +26,13 @@ async function main() {
             "https://saref.etsi.org/core/hasValue",
             "http://www.w3.org/2001/XMLSchema#dateTime"
         ).build();
-    const stream = await new LDESTS.Builder("test-stream", "http://localhost:3000")
+    const stream = await new LDESTS.Builder("test-stream")
         .config({ 'window': 5, 'resourceSize': 1000, 'resourceCount': 3 })
         .shape(shape)
         .queryUri("https://saref.etsi.org/core/relatesToProperty")
         .queryUri("https://saref.etsi.org/core/measurementMadeBy")
+        .attachSolidPublisher("http://localhost:3000")
+        .attachDebugPublisher()
         .create();
     stream.append("../DAHCC-Data/dataset_participant_sample_accel_data.nt");
     await stream.flush();

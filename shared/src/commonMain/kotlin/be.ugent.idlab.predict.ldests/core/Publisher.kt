@@ -1,6 +1,9 @@
 package be.ugent.idlab.predict.ldests.core
 
+import be.ugent.idlab.predict.ldests.rdf.NamedNodeTerm
 import be.ugent.idlab.predict.ldests.rdf.Turtle
+import be.ugent.idlab.predict.ldests.rdf.asNamedNode
+import kotlinx.coroutines.*
 
 abstract class Publisher {
 
@@ -22,5 +25,47 @@ abstract class Publisher {
      * Expected path is the complete path after host, like `stream/fragment/` or `stream/fragment/resource`
      */
     abstract suspend fun publish(path: String, data: String): Boolean
+
+    /**
+     * The publishable items this publisher is subscribed to
+     */
+    private val jobs = mutableMapOf<PublishBuffer, Job>()
+
+    /**
+     * Starts publishing everything the buffer receives. Keeps listening until `unsubscribe` with
+     *  the same buffer is called or the program terminates
+     */
+    fun subscribe(scope: CoroutineScope, buffer: PublishBuffer) {
+        with(buffer) {
+            jobs[buffer] = scope.launch {
+                subscribe { path, block ->
+                    publish(path, Turtle(block = block))
+                }
+            }
+        }
+    }
+
+    /**
+     * Starts publishing everything created by the publishable item. Keeps listening until `unsubscribe` with
+     *  the same publisher is called
+     */
+    suspend fun unsubscribe(item: PublishBuffer) {
+        jobs[item]?.cancelAndJoin()
+        jobs.remove(item)
+    }
+
+    suspend fun close() {
+        coroutineScope {
+            jobs.map { (item, job) ->
+                async {
+                    job.cancelAndJoin()
+                    jobs.remove(item)
+                }
+            }.awaitAll()
+        }
+    }
+
+    val Publishable.uri: NamedNodeTerm
+        get() = "$root/$path".asNamedNode()
 
 }

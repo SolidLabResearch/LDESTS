@@ -8,9 +8,10 @@ import be.ugent.idlab.predict.ldests.rdf.asNamedNode
 import be.ugent.idlab.predict.ldests.rdf.ontology.*
 import be.ugent.idlab.predict.ldests.rdf.ontology.LDESTS
 
-internal fun Turtle.stream(stream: Stream) {
-    // creating the shape first, in the same document for now
-    val shape = "${stream.uri.value}shape".asNamedNode()
+// TODO: change the publisher argument to publisher context receiver once K2 releases
+internal fun Turtle.stream(publisher: Publisher, stream: Stream) = with(publisher) {
+    // creating the shape first, in the same document for now (and thus 'local' uri)
+    val shape = "shape".asNamedNode()
     shape(subject = shape, shape = stream.shape)
     // associating the shape from above with the stream here
     +stream.uri has RDF.type being TREE.Node
@@ -18,21 +19,23 @@ internal fun Turtle.stream(stream: Stream) {
     +stream.uri has LDESTS.shape being shape
 }
 
-internal fun Turtle.fragmentRelation(fragment: Stream.Fragment) = blank {
-    +RDF.type being TREE.GreaterThanOrEqualToRelation // FIXME other relations? custom relation?
-    +TREE.value being fragment.start
-    +TREE.path being fragment.shape.sampleIdentifier.predicate
-    +TREE.node being fragment.path.asNamedNode()
+internal fun Turtle.fragmentRelation(publisher: Publisher, fragment: Stream.Fragment) = with(publisher) {
+    blank {
+        +RDF.type being TREE.GreaterThanOrEqualToRelation // FIXME other relations? custom relation?
+        +TREE.value being fragment.start
+        +TREE.path being fragment.shape.sampleIdentifier.predicate
+        +TREE.node being fragment.uri
+    }
 }
 
-internal fun Turtle.fragment(fragment: Stream.Fragment) {
+internal fun Turtle.fragment(publisher: Publisher, fragment: Stream.Fragment) = with (publisher) {
     +fragment.uri has RDF.type being LDESTS.FragmentType
     fragment.rules.constraints.forEach {
         +fragment.uri has LDESTS.constraints being constraint(it)
     }
 }
 
-internal fun Turtle.resource(resource: Stream.Fragment.Resource) {
+internal fun Turtle.resource(publisher: Publisher, resource: Stream.Fragment.Resource) = with(publisher) {
     +resource.uri has RDF.type being LDESTS.ResourceType
     +resource.uri has LDESTS.contents being resource.data.asLiteral()
 }

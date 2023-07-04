@@ -28,9 +28,9 @@ class LDESTSJS private constructor(
 
     @JsName("Builder")
     @ExternalUse
-    class BuilderJS(name: String, url: String) {
+    class BuilderJS(name: String) {
 
-        private val builder = LDESTS.Builder(name = name, url = url)
+        private val builder = LDESTS.Builder(name = name)
 
         @ExternalUse
         fun config(config: dynamic): BuilderJS {
@@ -69,6 +69,18 @@ class LDESTSJS private constructor(
         @ExternalUse
         fun queryUri(uri: String): BuilderJS {
             builder.queryRule(uri.asNamedNode())
+            return this
+        }
+
+        @ExternalUse
+        fun attachDebugPublisher(): BuilderJS {
+            builder.attachDebugPublisher()
+            return this
+        }
+
+        @ExternalUse
+        fun attachSolidPublisher(url: String): BuilderJS {
+            builder.attachSolidPublisher(url = url)
             return this
         }
 

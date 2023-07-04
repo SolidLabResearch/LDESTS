@@ -3,6 +3,8 @@ package be.ugent.idlab.predict.ldests.core
 import be.ugent.idlab.predict.ldests.rdf.LocalResource
 import be.ugent.idlab.predict.ldests.rdf.NamedNodeTerm
 import be.ugent.idlab.predict.ldests.rdf.TripleProvider
+import be.ugent.idlab.predict.ldests.rdf.Turtle
+import be.ugent.idlab.predict.ldests.rdf.ontology.Ontology
 import be.ugent.idlab.predict.ldests.solid.SolidPublisher
 import be.ugent.idlab.predict.ldests.util.log
 import be.ugent.idlab.predict.ldests.util.warn
@@ -16,6 +18,12 @@ class LDESTS private constructor(
      */
     private val stream: Stream,
     /**
+     * (temporary) Publishers used to publish the stream to
+     */
+    private val publishers: List<Publisher>,
+    /** Stream buffer, already attached **/
+    private val buffer: PublishBuffer,
+    /**
      * Initial data that can already be published to the stream, generating the first fragment(s) if necessary
      */
     data: List<TripleProvider> = listOf()
@@ -27,6 +35,10 @@ class LDESTS private constructor(
     private val scope = CoroutineScope(Dispatchers.Unconfined + job)
     // lock responsible for all resources that aren't used by the stream (yet)
     private val resourceLock = Mutex()
+
+    init {
+        publishers.forEach { it.subscribe(scope, buffer) }
+    }
 
     fun append(filename: String) {
         scope.launch {
@@ -54,13 +66,15 @@ class LDESTS private constructor(
 
     suspend fun close() {
         warn("Close called, stopping all ongoing work.")
+        warn("Close: stopping all publishers.")
+        publishers.forEach { it.close() }
+        warn("Stopping remaining jobs.")
         job.cancelAndJoin()
         log("Stream has been closed.")
     }
 
     class Builder(
-        private val name: String,
-        private val url: String /* TODO: identification of publisher type */
+        private val name: String
     ) {
 
         private var configuration = Stream.Configuration()
@@ -69,6 +83,7 @@ class LDESTS private constructor(
         //  data, or a configuration provided by this builder
         private var data = mutableListOf<TripleProvider>()
         private val queryUris = mutableListOf<NamedNodeTerm>()
+        private val publishers = mutableListOf<Publisher>()
 
         fun file(filepath: String): Builder {
             /* TODO: derive shape using the triples read from this filepath if necessary instead */
@@ -104,6 +119,31 @@ class LDESTS private constructor(
             return this
         }
 
+        fun attachDebugPublisher(): Builder {
+            publishers.add(
+                object: Publisher() {
+                    override val root: String = "debug.local"
+
+                    override suspend fun publish(path: String, data: Turtle.() -> Unit): Boolean {
+                        val str = Turtle(prefixes = Ontology.PREFIXES, block = data)
+                        log("In debugger for `$path`:\n$str")
+                        return true
+                    }
+
+                    override suspend fun publish(path: String, data: String): Boolean {
+                        log("In debugger for `$path`:\n$data")
+                        return true
+                    }
+                }
+            )
+            return this
+        }
+
+        fun attachSolidPublisher(url: String): Builder {
+            publishers.add(SolidPublisher(url = url))
+            return this
+        }
+
         suspend fun create(): LDESTS = shape?.let {
             val stream = Stream.create(
                 name = name,
@@ -111,10 +151,13 @@ class LDESTS private constructor(
                 shape = it,
                 rules = it.split(*queryUris.toTypedArray())
             )
-            // TODO: make this a build option
-            stream.publishTo(SolidPublisher(url = url))
+            val buf = PublishBuffer()
+            stream.attach(buf)
             LDESTS(
                 stream = stream,
+                // TODO: make this a build option
+                publishers = publishers,
+                buffer = buf
                 // TODO: initial set of data providers
             )
         } ?: throw Error("Invalid Builder() usage!")

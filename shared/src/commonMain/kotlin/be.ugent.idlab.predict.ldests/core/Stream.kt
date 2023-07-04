@@ -6,10 +6,7 @@ import be.ugent.idlab.predict.ldests.rdf.*
 import be.ugent.idlab.predict.ldests.rdf.ontology.SHACL
 import be.ugent.idlab.predict.ldests.rdf.ontology.SHAPETS
 import be.ugent.idlab.predict.ldests.rdf.ontology.TREE
-import be.ugent.idlab.predict.ldests.util.consume
-import be.ugent.idlab.predict.ldests.util.join
-import be.ugent.idlab.predict.ldests.util.log
-import be.ugent.idlab.predict.ldests.util.retainLetters
+import be.ugent.idlab.predict.ldests.util.*
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -39,6 +36,12 @@ class Stream private constructor(
     //  global         L            |             L               |            L            |  U
     //  inner          U            |           U & L             |          U & L          |  U
     private val fragments: MutableMap<Rules, MutableList<Fragment>> = mutableMapOf()
+
+    override suspend fun onBufferAttached() = publish { publisher ->
+        // writing the initial stream layout
+        // TODO: fetch data from the publisher first! See if it is usable
+        stream(publisher, this@Stream)
+    }
 
     suspend fun flush() = globalLock.withLock {
         log("Lock in `flush` acquired.")
@@ -86,18 +89,22 @@ class Stream private constructor(
             .ifEmpty {
                 // using the first sample to create a fragment id with
                 val identifier = data.id()
-                val new = createFragment(
-                    name = "${rules.id}_${identifier}",
+                val fragment = createFragment(
+                    path = "$path${rules.id}_${identifier}/",
                     configuration = configuration,
                     rules = rules,
                     // let's hope the data is sorted
                     start = identifier
                 )
-                publish {
-                    +this@Stream.uri has TREE.relation being fragmentRelation(new)
+                // attaching the stream's buffer (if any)
+                buffer?.let { fragment.attach(it) } ?: warn("New fragment was created while no buffer is attached!")
+                publish { publisher ->
+                    with (publisher) {
+                        +this@Stream.uri has TREE.relation being fragmentRelation(publisher, fragment)
+                    }
                 }
-                fragments[rules]!!.add(new)
-                listOf(new)
+                fragments[rules]!!.add(fragment)
+                listOf(fragment)
             }
     }
 
@@ -151,31 +158,24 @@ class Stream private constructor(
     }
 
     class Fragment private constructor(
-        stream: Stream,
-        name: String,
+        path: String,
         // TODO: generic for timestamp, geospatial, ... support?
         internal val start: Long,
         private val configuration: Configuration,
-        internal val rules: Rules
-    ): Publishable(
-        path = "${stream.path}$name/",
-        target = stream.target
-    ) {
+        internal val rules: Rules,
+        private var buf: Resource
+    ): Publishable(path = path) {
 
         init {
-            log("Created a fragment with id `$name`")
+            log("Created a fragment with id `$path`")
         }
 
         val shape: Shape
             get() = rules.shape
 
         class Resource(
-            fragment: Fragment,
-            name: String
-        ): Publishable(
-            path = "${fragment.path}$name",
-            target = fragment.target
-        ) {
+            path: String
+        ): Publishable(path = path) {
 
             var count: Int = 0
                 private set
@@ -189,7 +189,7 @@ class Stream private constructor(
             }
 
             suspend fun publish() = publish {
-                resource(this@Resource)
+                resource(it, this@Resource)
             }
 
         }
@@ -199,8 +199,6 @@ class Stream private constructor(
 
         // all fragment content that is COMPLETE!
         private var resourceCount = 0
-        // FIXME improve ID gen
-        private var buf = generateResource()
 
         private val range = start .. start + configuration.window.inWholeMilliseconds
 
@@ -227,8 +225,12 @@ class Stream private constructor(
             }
         }
 
+        override suspend fun onBufferAttached() = publish {
+            fragment(it, this@Fragment)
+        }
+
         /**
-         * Flushes the existing buffer so it can be published, even when it is small
+         * Flushes the existing buffer, so it can be published, even when it is small
          */
         internal suspend fun flush() = lock.withLock {
             if (buf.count == 0) {
@@ -241,27 +243,35 @@ class Stream private constructor(
         companion object {
 
             suspend fun Stream.createFragment(
-                name: String,
+                path: String,
                 start: Long,
                 configuration: Configuration,
                 rules: Rules
             ): Fragment {
-                val fragment = Fragment(
-                    stream = this,
-                    name = name,
+                return Fragment(
+                    path = path,
                     start = start,
                     configuration = configuration,
-                    rules = rules
+                    rules = rules,
+                    buf = generateResource(path, 0, buffer)
                 )
-                with (fragment) {
-                    publish { fragment(this@with) }
+            }
+
+            private suspend fun generateResource(
+                location: String,
+                id: Int,
+                buffer: PublishBuffer?
+            ): Resource {
+                return Resource(
+                    path = "${location}ID_${id}"
+                ).apply {
+                    buffer?.let { attach(it) } ?: warn("A new resource for a fragment was created while no buffer was attached!")
                 }
-                return fragment
             }
 
         }
 
-        private fun generateResource() = Resource(fragment = this, name = "ID_${resourceCount++}")
+        private suspend fun generateResource() = Companion.generateResource(path, ++resourceCount, buffer)
 
     }
 
@@ -276,19 +286,12 @@ class Stream private constructor(
             // TODO: builder scope for these various options
             // TODO: necessary fetches to the remote host to get relevant data
             //  maybe get the publisher here as an argument, as this can supply this information
-            val stream = Stream(
+            return Stream(
                 name = name,
                 configuration = configuration,
                 shape = shape,
                 rules = rules
             )
-            // we have to publish the stream once, future fragments are added through LDP automatically
-            with (stream) {
-                publish {
-                    stream(this@with)
-                }
-            }
-            return stream
         }
 
     }
