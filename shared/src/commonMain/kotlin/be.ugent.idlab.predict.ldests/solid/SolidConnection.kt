@@ -1,11 +1,11 @@
 package be.ugent.idlab.predict.ldests.solid
 
 import be.ugent.idlab.predict.ldests.rdf.NamedNodeTerm
-import be.ugent.idlab.predict.ldests.rdf.TripleStore
+import be.ugent.idlab.predict.ldests.rdf.RemoteResource
 import be.ugent.idlab.predict.ldests.rdf.Turtle
 import be.ugent.idlab.predict.ldests.rdf.ontology.Ontology
-import be.ugent.idlab.predict.ldests.util.RequestType
-import be.ugent.idlab.predict.ldests.util.request
+import be.ugent.idlab.predict.ldests.util.SubmitRequestType
+import be.ugent.idlab.predict.ldests.util.submit
 
 class SolidConnection(
     url: String
@@ -17,14 +17,14 @@ class SolidConnection(
         val url: String
     ) {
 
-        suspend fun read(): TripleStore {
-            TODO("Not yet implemented")
+        fun read(): RemoteResource {
+            return RemoteResource.from(url = url)
         }
 
         open suspend fun write(block: Turtle.() -> Unit): Int {
             // `PUT`ting the resource directly
-            return request(
-                type = RequestType.PUT,
+            return submit(
+                type = SubmitRequestType.PUT,
                 url = url,
                 headers = listOf("Content-type" to "text/turtle"),
                 body = Turtle(prefixes = Ontology.PREFIXES, block = block)
@@ -33,8 +33,8 @@ class SolidConnection(
 
         open suspend fun write(turtle: String): Int {
             // `PUT`ting the resource directly
-            return request(
-                type = RequestType.PUT,
+            return submit(
+                type = SubmitRequestType.PUT,
                 url = url,
                 headers = listOf("Content-type" to "text/turtle"),
                 body = turtle
@@ -50,15 +50,15 @@ class SolidConnection(
 
         override suspend fun write(block: Turtle.() -> Unit): Int {
             // creating the folder
-            request(
-                type = RequestType.PUT,
+            submit(
+                type = SubmitRequestType.PUT,
                 url = url,
                 headers = listOf(),
                 body = ""
             )
             // setting the .meta file for the additional data
-            return request(
-                type = RequestType.PATCH,
+            return submit(
+                type = SubmitRequestType.PATCH,
                 url = "$url.meta",
                 headers = listOf("Content-type" to "application/sparql-update"),
                 // no prefixes used here, as the `INSERT DATA {}` construct doesn't like the `@prefix` syntax
@@ -68,15 +68,15 @@ class SolidConnection(
 
         override suspend fun write(turtle: String): Int {
             // creating the folder
-            request(
-                type = RequestType.PUT,
+            submit(
+                type = SubmitRequestType.PUT,
                 url = url,
                 headers = listOf(),
                 body = ""
             )
             // setting the .meta file for the additional data
-            return request(
-                type = RequestType.PATCH,
+            return submit(
+                type = SubmitRequestType.PATCH,
                 url = "$url.meta",
                 headers = listOf("Content-type" to "application/sparql-update"),
                 // no prefixes used here, as the `INSERT DATA {}` construct doesn't like the `@prefix` syntax

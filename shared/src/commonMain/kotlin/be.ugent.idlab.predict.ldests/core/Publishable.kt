@@ -11,8 +11,13 @@ abstract class Publishable(
     internal var buffer: PublishBuffer? = null
         private set
 
-    internal open suspend fun onBufferAttached() {
-        // nothing to do ootb
+    enum class PublisherAttachResult {
+        SUCCESS, FAILURE, NEW
+    }
+
+    internal open suspend fun onPublisherAttached(publisher: Publisher): PublisherAttachResult {
+        // no compat checking by default
+        return PublisherAttachResult.SUCCESS
     }
 
     protected suspend fun publish(block: Turtle.(publisher: Publisher) -> Unit) {
@@ -23,9 +28,9 @@ abstract class Publishable(
             }
     }
 
-    suspend fun attach(buffer: PublishBuffer) {
+    fun attach(buffer: PublishBuffer) {
         this.buffer = buffer
-        onBufferAttached()
+        buffer.onAttached(this)
     }
 
 }

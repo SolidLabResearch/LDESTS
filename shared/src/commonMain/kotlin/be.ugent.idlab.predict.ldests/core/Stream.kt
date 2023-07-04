@@ -3,6 +3,7 @@ package be.ugent.idlab.predict.ldests.core
 import be.ugent.idlab.predict.ldests.core.Shape.Companion.id
 import be.ugent.idlab.predict.ldests.core.Stream.Fragment.Companion.createFragment
 import be.ugent.idlab.predict.ldests.rdf.*
+import be.ugent.idlab.predict.ldests.rdf.ontology.LDESTS
 import be.ugent.idlab.predict.ldests.rdf.ontology.SHACL
 import be.ugent.idlab.predict.ldests.rdf.ontology.SHAPETS
 import be.ugent.idlab.predict.ldests.rdf.ontology.TREE
@@ -37,10 +38,17 @@ class Stream private constructor(
     //  inner          U            |           U & L             |          U & L          |  U
     private val fragments: MutableMap<Rules, MutableList<Fragment>> = mutableMapOf()
 
-    override suspend fun onBufferAttached() = publish { publisher ->
-        // writing the initial stream layout
-        // TODO: fetch data from the publisher first! See if it is usable
-        stream(publisher, this@Stream)
+    override suspend fun onPublisherAttached(publisher: Publisher): PublisherAttachResult {
+        log("Checking stream compatibility with publisher")
+        publisher
+            .fetch(path)
+            ?.extractStream(with (publisher) { uri })
+        // TODO: only publish when NEW (do this somewhere else as this func already returns the status?)
+        publisher.publish(path) {
+            // writing the initial stream layout
+            stream(publisher, this@Stream)
+        }
+        return PublisherAttachResult.SUCCESS
     }
 
     suspend fun flush() = globalLock.withLock {
@@ -63,7 +71,7 @@ class Stream private constructor(
             //  to get the appropriate fragment (creating one if necessary)
             ruleSet.map { rules ->
                 async {
-                    query(rules.shape.query)
+                    query(rules.shape.query)!!
                         .consume { binding ->
                             this@coroutineScope.launch {
                                 findOrCreate(rules = rules, data = binding).forEach {
@@ -225,8 +233,14 @@ class Stream private constructor(
             }
         }
 
-        override suspend fun onBufferAttached() = publish {
-            fragment(it, this@Fragment)
+        override suspend fun onPublisherAttached(publisher: Publisher): PublisherAttachResult {
+            // TODO: actual checking
+            log("Checking stream compatibility with publisher")
+            publisher.fetch(path)
+            publisher.publish(path) {
+                fragment(publisher, this@Fragment)
+            }
+            return PublisherAttachResult.SUCCESS
         }
 
         /**
@@ -292,6 +306,19 @@ class Stream private constructor(
                 shape = shape,
                 rules = rules
             )
+        }
+
+        suspend fun TripleProvider.extractStream(uri: NamedNodeTerm): Stream? {
+            query(Query("""
+                SELECT * WHERE {
+                    <${uri.value}> a <https://predict.ugent.be/ldests#Node>.
+                    <${uri.value}> <${LDESTS.shape.value}> ?shape.
+                }
+            """.trimIndent()))
+                ?.consume { log("Found named stream with shape ${it["shape"]!!.value}") }
+                ?.join()
+            // TODO: shape & rules extraction
+            return null
         }
 
     }

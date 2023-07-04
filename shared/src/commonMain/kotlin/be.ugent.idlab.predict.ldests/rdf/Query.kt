@@ -38,7 +38,8 @@ expect operator fun Binding.get(variable: String): Term?
 expect suspend fun InputStream<Triple>.query(query: Query): InputStream<Binding>
 
 /**
- * Querying the provider (directly); most efficient way of obtaining a stream of bindings instantly
+ * Querying the provider (directly); most efficient way of obtaining a stream of bindings instantly. Can return
+ *  null if the provider is either invalid (e.g. existing but non-rdf file), or contains no resources (remote)
  */
-expect suspend fun TripleProvider.query(query: Query): InputStream<Binding>
+expect suspend fun TripleProvider.query(query: Query): InputStream<Binding>?
 

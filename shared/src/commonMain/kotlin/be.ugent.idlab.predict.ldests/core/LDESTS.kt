@@ -36,7 +36,7 @@ class LDESTS private constructor(
     // lock responsible for all resources that aren't used by the stream (yet)
     private val resourceLock = Mutex()
 
-    init {
+    suspend fun init() {
         publishers.forEach { it.subscribe(scope, buffer) }
     }
 
@@ -122,7 +122,13 @@ class LDESTS private constructor(
         fun attachDebugPublisher(): Builder {
             publishers.add(
                 object: Publisher() {
+
                     override val root: String = "debug.local"
+
+                    override suspend fun fetch(path: String): TripleProvider? {
+                        // no compat checking relevant here
+                        return null
+                    }
 
                     override suspend fun publish(path: String, data: Turtle.() -> Unit): Boolean {
                         val str = Turtle(prefixes = Ontology.PREFIXES, block = data)
@@ -134,6 +140,7 @@ class LDESTS private constructor(
                         log("In debugger for `$path`:\n$data")
                         return true
                     }
+
                 }
             )
             return this
@@ -159,7 +166,7 @@ class LDESTS private constructor(
                 publishers = publishers,
                 buffer = buf
                 // TODO: initial set of data providers
-            )
+            ).apply { init() }
         } ?: throw Error("Invalid Builder() usage!")
 
     }

@@ -1,9 +1,13 @@
 package be.ugent.idlab.predict.ldests.core
 
 import be.ugent.idlab.predict.ldests.rdf.NamedNodeTerm
+import be.ugent.idlab.predict.ldests.rdf.TripleProvider
 import be.ugent.idlab.predict.ldests.rdf.Turtle
 import be.ugent.idlab.predict.ldests.rdf.asNamedNode
 import kotlinx.coroutines.*
+import kotlin.collections.component1
+import kotlin.collections.component2
+import kotlin.collections.set
 
 abstract class Publisher {
 
@@ -11,6 +15,11 @@ abstract class Publisher {
      * The base URL of this publisher; e.g. `localhost:3000`
      */
     abstract val root: String
+
+    /**
+     * Fetches data related to the provided path (depending on the type of publisher)
+     */
+    abstract suspend fun fetch(path: String): TripleProvider?
 
     /**
      * Publishes the data retrieved by executing the provided lambda. Returns `true` upon success (so memory can be
@@ -35,14 +44,8 @@ abstract class Publisher {
      * Starts publishing everything the buffer receives. Keeps listening until `unsubscribe` with
      *  the same buffer is called or the program terminates
      */
-    fun subscribe(scope: CoroutineScope, buffer: PublishBuffer) {
-        with(buffer) {
-            jobs[buffer] = scope.launch {
-                subscribe { path, block ->
-                    publish(path, Turtle(block = block))
-                }
-            }
-        }
+    suspend fun subscribe(scope: CoroutineScope, buffer: PublishBuffer) = with(buffer) {
+        jobs[buffer] = subscribe(scope) { path, block -> publish(path, Turtle(block = block)) }
     }
 
     /**
