@@ -1,9 +1,6 @@
 package be.ugent.idlab.predict.ldests.core
 
-import be.ugent.idlab.predict.ldests.rdf.NamedNodeTerm
-import be.ugent.idlab.predict.ldests.rdf.TripleProvider
-import be.ugent.idlab.predict.ldests.rdf.Turtle
-import be.ugent.idlab.predict.ldests.rdf.asNamedNode
+import be.ugent.idlab.predict.ldests.rdf.*
 import kotlinx.coroutines.*
 import kotlin.collections.component1
 import kotlin.collections.component2
@@ -26,7 +23,7 @@ abstract class Publisher {
      *  freed again)
      * Expected path is the complete path after host, like `stream/fragment/` or `stream/fragment/resource`
      */
-    abstract suspend fun publish(path: String, data: Turtle.() -> Unit): Boolean
+    abstract suspend fun publish(path: String, data: TripleBuilder.() -> Unit): Boolean
 
     /**
      * Publishes the data passed to the function (turtle format typically expected). Returns `true` upon success (so

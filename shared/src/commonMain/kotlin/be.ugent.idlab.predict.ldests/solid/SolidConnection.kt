@@ -2,6 +2,7 @@ package be.ugent.idlab.predict.ldests.solid
 
 import be.ugent.idlab.predict.ldests.rdf.NamedNodeTerm
 import be.ugent.idlab.predict.ldests.rdf.RemoteResource
+import be.ugent.idlab.predict.ldests.rdf.TripleBuilder
 import be.ugent.idlab.predict.ldests.rdf.Turtle
 import be.ugent.idlab.predict.ldests.rdf.ontology.Ontology
 import be.ugent.idlab.predict.ldests.util.SubmitRequestType
@@ -21,7 +22,7 @@ class SolidConnection(
             return RemoteResource.from(url = url)
         }
 
-        open suspend fun write(block: Turtle.() -> Unit): Int {
+        open suspend fun write(block: TripleBuilder.() -> Unit): Int {
             // `PUT`ting the resource directly
             return submit(
                 type = SubmitRequestType.PUT,
@@ -48,7 +49,7 @@ class SolidConnection(
         url: String
     ): Resource(url) {
 
-        override suspend fun write(block: Turtle.() -> Unit): Int {
+        override suspend fun write(block: TripleBuilder.() -> Unit): Int {
             // creating the folder
             submit(
                 type = SubmitRequestType.PUT,

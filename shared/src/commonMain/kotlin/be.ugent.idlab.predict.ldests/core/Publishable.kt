@@ -1,6 +1,6 @@
 package be.ugent.idlab.predict.ldests.core
 
-import be.ugent.idlab.predict.ldests.rdf.Turtle
+import be.ugent.idlab.predict.ldests.rdf.TripleBuilder
 import be.ugent.idlab.predict.ldests.util.warn
 
 abstract class Publishable(
@@ -24,11 +24,11 @@ abstract class Publishable(
         publisher.publish(path) { onCreate(publisher) }
     }
 
-    protected open fun Turtle.onCreate(publisher: Publisher) {
+    protected open fun TripleBuilder.onCreate(publisher: Publisher) {
         /* nothing to do by default */
     }
 
-    protected suspend fun publish(block: Turtle.(publisher: Publisher) -> Unit) {
+    protected suspend fun publish(block: TripleBuilder.(publisher: Publisher) -> Unit) {
         buffer
             ?.emit(path = path, data = block)
             ?: run {

@@ -1,9 +1,6 @@
 package be.ugent.idlab.predict.ldests.core
 
-import be.ugent.idlab.predict.ldests.rdf.LocalResource
-import be.ugent.idlab.predict.ldests.rdf.NamedNodeTerm
-import be.ugent.idlab.predict.ldests.rdf.TripleProvider
-import be.ugent.idlab.predict.ldests.rdf.Turtle
+import be.ugent.idlab.predict.ldests.rdf.*
 import be.ugent.idlab.predict.ldests.rdf.ontology.Ontology
 import be.ugent.idlab.predict.ldests.solid.SolidPublisher
 import be.ugent.idlab.predict.ldests.util.log
@@ -130,7 +127,7 @@ class LDESTS private constructor(
                         return null
                     }
 
-                    override suspend fun publish(path: String, data: Turtle.() -> Unit): Boolean {
+                    override suspend fun publish(path: String, data: TripleBuilder.() -> Unit): Boolean {
                         val str = Turtle(prefixes = Ontology.PREFIXES, block = data)
                         log("In debugger for `$path`:\n$str")
                         return true

@@ -62,7 +62,7 @@ class Stream private constructor(
         return PublisherAttachResult.SUCCESS
     }
 
-    override fun Turtle.onCreate(publisher: Publisher) {
+    override fun TripleBuilder.onCreate(publisher: Publisher) {
         // writing the initial stream layout
         stream(publisher, this@Stream)
     }
