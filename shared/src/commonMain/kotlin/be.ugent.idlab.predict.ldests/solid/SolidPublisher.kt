@@ -20,8 +20,4 @@ class SolidPublisher(
         return connection.fromUrl("$root/$path").write(block = data) in 200..299
     }
 
-    override suspend fun publish(path: String, data: String): Boolean {
-        return connection.fromUrl("$root/$path").write(data) in 200..299
-    }
-
 }

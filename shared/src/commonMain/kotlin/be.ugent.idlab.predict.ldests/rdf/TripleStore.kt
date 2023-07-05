@@ -12,4 +12,12 @@ expect class TripleStore() {
     fun has(triple: Triple)
     fun delete(triple: Triple)
 
+    fun insert(block: TripleBuilder.() -> Unit)
+
+    companion object
+
 }
+
+operator fun TripleStore.Companion.invoke(block: TripleBuilder.() -> Unit) =
+    TripleStore().apply { insert(block) }
+

@@ -13,6 +13,8 @@ expect class LocalResource: TripleProvider {
         // TODO: validity checking
         suspend fun from(filepath: String): LocalResource
 
+        fun wrap(buffer: TripleStore): LocalResource
+
     }
 
 }

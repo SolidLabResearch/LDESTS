@@ -64,6 +64,8 @@ external class N3Store {
     val size: Int
 
     fun add(triple: N3Triple)
+    @JsName("addQuad")
+    fun add(subject: N3Term, predicate: N3Term, `object`: N3Term, graph: N3Term? = definedExternally)
     fun has(triple: N3Triple)
     fun delete(triple: N3Triple)
     fun forEach(
@@ -75,7 +77,7 @@ external class N3Store {
     fun getSubjects(): Array<N3Term>
     fun getPredicates(): Array<N3Term>
     fun getObjects(): Array<N3Term>
-
+    fun createBlankNode(suggestedName: String = definedExternally): N3BlankNode
 }
 
 @JsName("Writer")

@@ -116,6 +116,8 @@ class LDESTS private constructor(
             return this
         }
 
+        // TODO: ability to add memory buffer
+
         fun attachDebugPublisher(): Builder {
             publishers.add(
                 object: Publisher() {
@@ -130,11 +132,6 @@ class LDESTS private constructor(
                     override suspend fun publish(path: String, data: TripleBuilder.() -> Unit): Boolean {
                         val str = Turtle(prefixes = Ontology.PREFIXES, block = data)
                         log("In debugger for `$path`:\n$str")
-                        return true
-                    }
-
-                    override suspend fun publish(path: String, data: String): Boolean {
-                        log("In debugger for `$path`:\n$data")
                         return true
                     }
 

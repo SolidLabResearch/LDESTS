@@ -27,6 +27,8 @@ actual class LocalResource private constructor(
             }
         )
 
+        actual fun wrap(buffer: TripleStore) = LocalResource(data = buffer)
+
     }
 
 }

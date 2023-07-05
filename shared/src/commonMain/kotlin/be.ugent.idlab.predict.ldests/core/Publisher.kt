@@ -1,6 +1,9 @@
 package be.ugent.idlab.predict.ldests.core
 
-import be.ugent.idlab.predict.ldests.rdf.*
+import be.ugent.idlab.predict.ldests.rdf.NamedNodeTerm
+import be.ugent.idlab.predict.ldests.rdf.TripleBuilder
+import be.ugent.idlab.predict.ldests.rdf.TripleProvider
+import be.ugent.idlab.predict.ldests.rdf.asNamedNode
 import kotlinx.coroutines.*
 import kotlin.collections.component1
 import kotlin.collections.component2
@@ -26,13 +29,6 @@ abstract class Publisher {
     abstract suspend fun publish(path: String, data: TripleBuilder.() -> Unit): Boolean
 
     /**
-     * Publishes the data passed to the function (turtle format typically expected). Returns `true` upon success (so
-     *  memory can be freed again)
-     * Expected path is the complete path after host, like `stream/fragment/` or `stream/fragment/resource`
-     */
-    abstract suspend fun publish(path: String, data: String): Boolean
-
-    /**
      * The publishable items this publisher is subscribed to
      */
     private val jobs = mutableMapOf<PublishBuffer, Job>()
@@ -42,7 +38,7 @@ abstract class Publisher {
      *  the same buffer is called or the program terminates
      */
     suspend fun subscribe(scope: CoroutineScope, buffer: PublishBuffer) = with(buffer) {
-        subscribe(scope) { path, block -> publish(path, Turtle(block = block)) }?.let {
+        subscribe(scope) { path, block -> publish(path, block) }?.let {
             jobs[buffer] = it
         }
     }
