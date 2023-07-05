@@ -27,7 +27,9 @@ class Query(
 )
 
 // not nested, as it is a typealias in the JS target
-expect class Binding
+expect class Binding {
+    fun toPrettyString(): String
+}
 
 // externally declared, same reason as the one above
 expect operator fun Binding.get(variable: String): Term?

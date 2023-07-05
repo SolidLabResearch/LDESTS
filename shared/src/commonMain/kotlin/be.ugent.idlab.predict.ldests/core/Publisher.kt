@@ -45,7 +45,9 @@ abstract class Publisher {
      *  the same buffer is called or the program terminates
      */
     suspend fun subscribe(scope: CoroutineScope, buffer: PublishBuffer) = with(buffer) {
-        jobs[buffer] = subscribe(scope) { path, block -> publish(path, Turtle(block = block)) }
+        subscribe(scope) { path, block -> publish(path, Turtle(block = block)) }?.let {
+            jobs[buffer] = it
+        }
     }
 
     /**

@@ -76,3 +76,7 @@ actual inline fun error(location: String?, text: String) {
         text = text
     ) + "\u001b[0m")
 }
+
+actual fun <T> T.stringified(): String {
+    return JSON.stringify(this)
+}

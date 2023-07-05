@@ -20,6 +20,14 @@ abstract class Publishable(
         return PublisherAttachResult.SUCCESS
     }
 
+    internal suspend fun onCreate(publisher: Publisher) {
+        publisher.publish(path) { onCreate(publisher) }
+    }
+
+    protected open fun Turtle.onCreate(publisher: Publisher) {
+        /* nothing to do by default */
+    }
+
     protected suspend fun publish(block: Turtle.(publisher: Publisher) -> Unit) {
         buffer
             ?.emit(path = path, data = block)

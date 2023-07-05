@@ -16,7 +16,7 @@ class ShapeJS private constructor(
     class Builder(
         type: String,
         private val identifier: String,
-        private val identifierType: String = "<http://www.w3.org/2001/XMLSchema#dateTime>"
+        private val identifierType: String = "http://www.w3.org/2001/XMLSchema#dateTime"
     ) {
 
         internal val builder = Shape.BuildScope(

@@ -74,3 +74,5 @@ inline fun <reified T> T.error(throwable: Throwable) {
         }
     }
 }
+
+expect fun <T> T.stringified(): String

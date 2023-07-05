@@ -3,6 +3,8 @@ package be.ugent.idlab.predict.ldests.core
 import be.ugent.idlab.predict.ldests.core.Shape.IdentifierProperty.Companion.BINDING_IDENTIFIER
 import be.ugent.idlab.predict.ldests.core.Shape.Property.Companion.query
 import be.ugent.idlab.predict.ldests.rdf.*
+import be.ugent.idlab.predict.ldests.util.log
+import be.ugent.idlab.predict.ldests.util.stringified
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
@@ -13,13 +15,33 @@ class Shape private constructor(
     val properties: Map<NamedNodeTerm, Property>
 ) {
 
+    override fun equals(other: Any?): Boolean {
+        val shape = other as? Shape ?: return false
+        if (typeIdentifier != shape.typeIdentifier || sampleIdentifier != shape.sampleIdentifier) {
+            log("Base configuration mismatch: ${typeIdentifier.stringified()} != ${shape.typeIdentifier.stringified()} | ${sampleIdentifier.stringified()} != ${shape.sampleIdentifier.stringified()}")
+            return false
+        }
+        if (properties.size != shape.properties.size || properties.keys.any { it !in other.properties.keys }) {
+            log("Available properties mismatch")
+            return false
+        }
+        properties.forEach { (predicate, firstValue) ->
+            val secondValue = shape.properties[predicate]!!
+            if (firstValue != secondValue) {
+                log("Existing properties mismatch: `${predicate.value}`: ``${firstValue} - `${secondValue}`")
+                return false
+            }
+        }
+        return true
+    }
+
     /** The type/class property, not part of the regular property hierarchy due to its unique nature **/
-    class ClassProperty(
+    data class ClassProperty(
         val value: NamedNodeTerm
     )
 
     /** The timestamp / tree property, not part of the regular property hierarchy due to its unique nature **/
-    class IdentifierProperty(
+    data class IdentifierProperty(
         val predicate: NamedNodeTerm,
         val type: NamedNodeTerm /* Matches the Literal's `datatype` attr */
     ) {
@@ -95,6 +117,18 @@ class Shape private constructor(
                     property.values.all { prop -> values.any { it.value == prop.value } }
         }
 
+        override fun equals(other: Any?): Boolean {
+            val o = other as? ConstantProperty ?: return false
+            // order of values is relevant, so strict checking of lists
+            return values == o.values
+        }
+
+        override fun hashCode(): Int {
+            var result = values.hashCode()
+            result = 31 * result + (id ?: 0)
+            return result
+        }
+
     }
 
     class VariableProperty(
@@ -112,11 +146,22 @@ class Shape private constructor(
                     property.type == type
         }
 
+        override fun equals(other: Any?): Boolean {
+            val o = other as? VariableProperty ?: return false
+            return type == o.type && count == o.count
+        }
+
+        override fun hashCode(): Int {
+            var result = type.hashCode()
+            result = 31 * result + count
+            return result
+        }
+
     }
 
     companion object {
 
-        fun create(
+        operator fun invoke(
             type: NamedNodeTerm,
             build: BuildScope.() -> Shape
         ): Shape = BuildScope(typeIdentifier = ClassProperty(value = type)).build()

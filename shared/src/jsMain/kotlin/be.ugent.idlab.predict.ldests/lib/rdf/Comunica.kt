@@ -28,4 +28,7 @@ external class ComunicaBinding {
 
     fun get(name: String): N3Term?
 
+    @JsName("toString")
+    fun toPrettyString(): String
+
 }

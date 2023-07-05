@@ -3,9 +3,6 @@ package be.ugent.idlab.predict.ldests.core
 import be.ugent.idlab.predict.ldests.core.Shape.Companion.id
 import be.ugent.idlab.predict.ldests.core.Stream.Fragment.Companion.createFragment
 import be.ugent.idlab.predict.ldests.rdf.*
-import be.ugent.idlab.predict.ldests.rdf.ontology.LDESTS
-import be.ugent.idlab.predict.ldests.rdf.ontology.SHACL
-import be.ugent.idlab.predict.ldests.rdf.ontology.SHAPETS
 import be.ugent.idlab.predict.ldests.rdf.ontology.TREE
 import be.ugent.idlab.predict.ldests.util.*
 import kotlinx.coroutines.async
@@ -21,14 +18,11 @@ class Stream private constructor(
     name: String,
     private val configuration: Configuration,
     internal val shape: Shape,
-    rules: List<Rules>
+    internal val rules: List<Rules>
 ): Publishable(
     path = "$name/"
 ) {
 
-    // TODO: check the rules w/ remote stream, if present, and change them here prior to publishing if necessary
-    // TODO: properly function when no rules exist, making a single entry w/ empty constraints
-    private val ruleSet = rules.toMutableList()
     // "global" lock, active while data is being added/flushed/...
     private val globalLock = Mutex()
     // "inner" lock, active while individual fragments are being updated
@@ -39,16 +33,38 @@ class Stream private constructor(
     private val fragments: MutableMap<Rules, MutableList<Fragment>> = mutableMapOf()
 
     override suspend fun onPublisherAttached(publisher: Publisher): PublisherAttachResult {
-        log("Checking stream compatibility with publisher")
-        publisher
-            .fetch(path)
-            ?.extractStream(with (publisher) { uri })
-        // TODO: only publish when NEW (do this somewhere else as this func already returns the status?)
-        publisher.publish(path) {
-            // writing the initial stream layout
-            stream(publisher, this@Stream)
+        val loc = publisher.fetch(path)
+            ?: return PublisherAttachResult.NEW // nothing to check against, so it's new
+        val existingShape = loc.extractShapeInformation(with (publisher) { uri })
+            ?: return PublisherAttachResult.NEW // shape is either non-existent, or badly configured
+        if (shape != existingShape) {
+            error("Publisher shape and stream shape are incompatible! Not attaching...")
+            return PublisherAttachResult.FAILURE
         }
+        loc.extractRuleInformation(with (publisher) { uri })?.let { existingRules ->
+            // currently only supporting exact matches, with existing rules being a subset of configured rules, requiring matching IDs;
+            // TODO later publisher-specific rule mapping can be done (matching IDs based on props)
+            val match = existingRules.all { (ruleId, ruleProps) ->
+                // not terribly efficient, oh well
+                ruleProps.map { it.key.value to it.value.toSet() }.toSet() ==
+                    rules.find { it.id == ruleId }?.constraints?.map { it.key.value to it.value.values.toSet() }?.toSet()
+            }
+            if (!match) {
+                error("Not all rules are compatible between to be attached publisher and existing stream! Not attaching...")
+                return PublisherAttachResult.FAILURE
+            }
+            if (rules.size > existingRules.size) {
+                log("Appending ${rules.size - existingRules.size} new rule(s) to existing publisher")
+                TODO()
+            }
+        }
+        // TODO: only publish when NEW (do this somewhere else as this func already returns the status?)
         return PublisherAttachResult.SUCCESS
+    }
+
+    override fun Turtle.onCreate(publisher: Publisher) {
+        // writing the initial stream layout
+        stream(publisher, this@Stream)
     }
 
     suspend fun flush() = globalLock.withLock {
@@ -69,7 +85,7 @@ class Stream private constructor(
         coroutineScope {
             // iterating over all existing rules, using their queries to obtain data, and using the data's timestamp
             //  to get the appropriate fragment (creating one if necessary)
-            ruleSet.map { rules ->
+            rules.map { rules ->
                 async {
                     query(rules.shape.query)!!
                         .consume { binding ->
@@ -140,6 +156,9 @@ class Stream private constructor(
 
     class Rules(
         internal val constraints: Map<NamedNodeTerm, Shape.ConstantProperty>,
+        val id: String = constraints.values.joinToString("") { value ->
+            value.values.first().value.retainLetters().takeLast(7).lowercase()
+        },
         parent: Shape
     ) {
 
@@ -149,19 +168,6 @@ class Stream private constructor(
          *  applied on the base shape (UNUSED! base query)
          */
         val shape = parent.narrow(constraints)
-
-        val id = constraints.values.joinToString("") { value ->
-            value.values.first().value.retainLetters().takeLast(7).lowercase()
-        }
-
-        companion object {
-
-            internal fun Turtle.constraint(constraint: Map.Entry<NamedNodeTerm, Shape.ConstantProperty>) = blank {
-                +SHACL.path being constraint.key
-                +SHAPETS.constantValue being list(constraint.value.values)
-            }
-
-        }
 
     }
 
@@ -308,18 +314,13 @@ class Stream private constructor(
             )
         }
 
-        suspend fun TripleProvider.extractStream(uri: NamedNodeTerm): Stream? {
-            query(Query("""
-                SELECT * WHERE {
-                    <${uri.value}> a <https://predict.ugent.be/ldests#Node>.
-                    <${uri.value}> <${LDESTS.shape.value}> ?shape.
-                }
-            """.trimIndent()))
-                ?.consume { log("Found named stream with shape ${it["shape"]!!.value}") }
-                ?.join()
-            // TODO: shape & rules extraction
-            return null
-        }
+        suspend fun TripleProvider.extractRuleInformation(stream: NamedNodeTerm) =
+            query(CONSTRAINT_SPARQL_QUERY_FOR_STREAM(stream))
+                ?.consumeAsRuleData()
+                ?.mapKeys { it.key.removePrefix(stream.value) }
+
+        suspend fun TripleProvider.extractShapeInformation(stream: NamedNodeTerm) =
+            query(SHAPE_SPARQL_QUERY_FOR_STREAM(stream))?.consumeAsShapeInformation()
 
     }
 
