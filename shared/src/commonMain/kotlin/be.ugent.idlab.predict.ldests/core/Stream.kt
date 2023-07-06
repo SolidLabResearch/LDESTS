@@ -20,7 +20,7 @@ class Stream private constructor(
     internal val shape: Shape,
     internal val rules: List<Rules>
 ): Publishable(
-    path = "$name/"
+    name = "$name/"
 ) {
 
     // "global" lock, active while data is being added/flushed/...
@@ -33,15 +33,15 @@ class Stream private constructor(
     private val fragments: MutableMap<Rules, MutableList<Fragment>> = mutableMapOf()
 
     override suspend fun onPublisherAttached(publisher: Publisher): PublisherAttachResult {
-        val loc = publisher.fetch(path)
+        val loc = publisher.fetch(name)
             ?: return PublisherAttachResult.NEW // nothing to check against, so it's new
-        val existingShape = loc.extractShapeInformation(with (publisher) { uri })
+        val existingShape = loc.extractShapeInformation(with (publisher.context) { uri })
             ?: return PublisherAttachResult.NEW // shape is either non-existent, or badly configured
         if (shape != existingShape) {
             error("Publisher shape and stream shape are incompatible! Not attaching...")
             return PublisherAttachResult.FAILURE
         }
-        loc.extractRuleInformation(with (publisher) { uri })?.let { existingRules ->
+        loc.extractRuleInformation(with (publisher.context) { uri })?.let { existingRules ->
             // currently only supporting exact matches, with existing rules being a subset of configured rules, requiring matching IDs;
             // TODO later publisher-specific rule mapping can be done (matching IDs based on props)
             val match = existingRules.all { (ruleId, ruleProps) ->
@@ -62,9 +62,9 @@ class Stream private constructor(
         return PublisherAttachResult.SUCCESS
     }
 
-    override fun TripleBuilder.onCreate(publisher: Publisher) {
+    override fun RDFBuilder.onCreate(publisher: Publisher) {
         // writing the initial stream layout
-        stream(publisher, this@Stream)
+        stream(this@Stream)
     }
 
     suspend fun flush() = globalLock.withLock {
@@ -114,7 +114,7 @@ class Stream private constructor(
                 // using the first sample to create a fragment id with
                 val identifier = data.id()
                 val fragment = createFragment(
-                    path = "$path${rules.id}_${identifier}/",
+                    path = "$name${rules.id}_${identifier}/",
                     configuration = configuration,
                     rules = rules,
                     // let's hope the data is sorted
@@ -122,10 +122,8 @@ class Stream private constructor(
                 )
                 // attaching the stream's buffer (if any)
                 buffer?.let { fragment.attach(it) } ?: warn("New fragment was created while no buffer is attached!")
-                publish { publisher ->
-                    with (publisher) {
-                        +this@Stream.uri has TREE.relation being fragmentRelation(publisher, fragment)
-                    }
+                publish {
+                    +this@Stream.uri has TREE.relation being fragmentRelation(fragment)
                 }
                 fragments[rules]!!.add(fragment)
                 listOf(fragment)
@@ -178,7 +176,7 @@ class Stream private constructor(
         private val configuration: Configuration,
         internal val rules: Rules,
         private var buf: Resource
-    ): Publishable(path = path) {
+    ): Publishable(name = path) {
 
         init {
             log("Created a fragment with id `$path`")
@@ -189,7 +187,7 @@ class Stream private constructor(
 
         class Resource(
             path: String
-        ): Publishable(path = path) {
+        ): Publishable(name = path) {
 
             var count: Int = 0
                 private set
@@ -203,7 +201,7 @@ class Stream private constructor(
             }
 
             suspend fun publish() = publish {
-                resource(it, this@Resource)
+                resource(this@Resource)
             }
 
         }
@@ -242,9 +240,9 @@ class Stream private constructor(
         override suspend fun onPublisherAttached(publisher: Publisher): PublisherAttachResult {
             // TODO: actual checking
             log("Checking stream compatibility with publisher")
-            publisher.fetch(path)
-            publisher.publish(path) {
-                fragment(publisher, this@Fragment)
+            publisher.fetch(name)
+            publisher.publish(name) {
+                fragment(this@Fragment)
             }
             return PublisherAttachResult.SUCCESS
         }
@@ -291,7 +289,7 @@ class Stream private constructor(
 
         }
 
-        private suspend fun generateResource() = Companion.generateResource(path, ++resourceCount, buffer)
+        private suspend fun generateResource() = Companion.generateResource(name, ++resourceCount, buffer)
 
     }
 

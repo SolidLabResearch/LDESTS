@@ -1,9 +1,7 @@
 package be.ugent.idlab.predict.ldests.core
 
-import be.ugent.idlab.predict.ldests.rdf.NamedNodeTerm
-import be.ugent.idlab.predict.ldests.rdf.TripleBuilder
+import be.ugent.idlab.predict.ldests.rdf.RDFBuilder
 import be.ugent.idlab.predict.ldests.rdf.TripleProvider
-import be.ugent.idlab.predict.ldests.rdf.asNamedNode
 import kotlinx.coroutines.*
 import kotlin.collections.component1
 import kotlin.collections.component2
@@ -12,9 +10,9 @@ import kotlin.collections.set
 abstract class Publisher {
 
     /**
-     * The base URL of this publisher; e.g. `localhost:3000`
+     * The context of the publisher, providing e.g. the base URI of this publisher (ex. `localhost:3000`)
      */
-    abstract val root: String
+    abstract val context: RDFBuilder.Context
 
     /**
      * Fetches data related to the provided path (depending on the type of publisher)
@@ -26,7 +24,7 @@ abstract class Publisher {
      *  freed again)
      * Expected path is the complete path after host, like `stream/fragment/` or `stream/fragment/resource`
      */
-    abstract suspend fun publish(path: String, data: TripleBuilder.() -> Unit): Boolean
+    abstract suspend fun publish(path: String, data: RDFBuilder.() -> Unit): Boolean
 
     /**
      * The publishable items this publisher is subscribed to
@@ -62,8 +60,5 @@ abstract class Publisher {
             }.awaitAll()
         }
     }
-
-    val Publishable.uri: NamedNodeTerm
-        get() = "$root/$path".asNamedNode()
 
 }

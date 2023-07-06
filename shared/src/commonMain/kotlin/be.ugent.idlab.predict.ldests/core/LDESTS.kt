@@ -15,9 +15,9 @@ class LDESTS private constructor(
      */
     private val stream: Stream,
     /**
-     * (temporary) Publishers used to publish the stream to
+     * Active publishers, all listening to the stream
      */
-    private val publishers: List<Publisher>,
+    val publishers: List<Publisher>,
     /** Stream buffer, already attached **/
     private val buffer: PublishBuffer,
     /**
@@ -116,27 +116,36 @@ class LDESTS private constructor(
             return this
         }
 
-        // TODO: ability to add memory buffer
-
         fun attachDebugPublisher(): Builder {
             publishers.add(
                 object: Publisher() {
 
-                    override val root: String = "debug.local"
+                    override val context = RDFBuilder.Context(
+                        path = "debug.local"
+                    )
 
                     override suspend fun fetch(path: String): TripleProvider? {
                         // no compat checking relevant here
                         return null
                     }
 
-                    override suspend fun publish(path: String, data: TripleBuilder.() -> Unit): Boolean {
-                        val str = Turtle(prefixes = Ontology.PREFIXES, block = data)
+                    override suspend fun publish(path: String, data: RDFBuilder.() -> Unit): Boolean {
+                        val str = Turtle(
+                            context = context,
+                            prefixes = Ontology.PREFIXES,
+                            block = data
+                        )
                         log("In debugger for `$path`:\n$str")
                         return true
                     }
 
                 }
             )
+            return this
+        }
+
+        fun attachMemoryPublisher(): Builder {
+            publishers.add(MemoryPublisher())
             return this
         }
 

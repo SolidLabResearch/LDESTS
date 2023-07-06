@@ -1,22 +1,24 @@
 package be.ugent.idlab.predict.ldests.core
 
-import be.ugent.idlab.predict.ldests.rdf.LocalResource
-import be.ugent.idlab.predict.ldests.rdf.TripleBuilder
+import be.ugent.idlab.predict.ldests.rdf.RDFBuilder
 import be.ugent.idlab.predict.ldests.rdf.TripleProvider
 import be.ugent.idlab.predict.ldests.rdf.TripleStore
 
 class MemoryPublisher: Publisher() {
 
-    override val root = ""
+    override val context = RDFBuilder.Context(
+        path = ""
+    )
 
-    private val bufs = mutableMapOf<String, TripleStore>()
+    val buffer = TripleStore()
 
     override suspend fun fetch(path: String): TripleProvider? {
-        return bufs[path]?.let { LocalResource.wrap(it) }
+        // FIXME: search for all subjects starting with path... somehow
+        return null
     }
 
-    override suspend fun publish(path: String, data: TripleBuilder.() -> Unit): Boolean {
-        bufs.getOrPut(path) { TripleStore() }.insert(data)
+    override suspend fun publish(path: String, data: RDFBuilder.() -> Unit): Boolean {
+        buffer.insert(context = RDFBuilder.Context(path = path), block = data)
         // always succeeds
         return true
     }

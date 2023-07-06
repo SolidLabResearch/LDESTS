@@ -1,5 +1,6 @@
 
 import be.ugent.idlab.predict.ldests.core.LDESTS
+import be.ugent.idlab.predict.ldests.core.MemoryPublisher
 import be.ugent.idlab.predict.ldests.core.Stream
 import be.ugent.idlab.predict.ldests.rdf.asNamedNode
 import kotlin.time.Duration.Companion.minutes
@@ -25,6 +26,15 @@ class LDESTSJS private constructor(
     @Suppress("NON_EXPORTABLE_TYPE") // wrong in this case
     @ExternalUse
     fun close() = promise { parent.close() }
+
+    @ExternalUse
+    fun toStore() = promise {
+        // flushing first, so the store is usable
+        parent.flush()
+        // looking for a memory based publisher
+        (parent.publishers.find { it is MemoryPublisher } as? MemoryPublisher)
+            ?.buffer?.store
+    }
 
     @JsName("Builder")
     @ExternalUse
@@ -75,6 +85,12 @@ class LDESTSJS private constructor(
         @ExternalUse
         fun attachDebugPublisher(): BuilderJS {
             builder.attachDebugPublisher()
+            return this
+        }
+
+        @ExternalUse
+        fun attachMemoryPublisher(): BuilderJS {
+            builder.attachMemoryPublisher()
             return this
         }
 

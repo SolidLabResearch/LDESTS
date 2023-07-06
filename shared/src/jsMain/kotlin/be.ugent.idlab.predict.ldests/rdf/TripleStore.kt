@@ -1,34 +1,35 @@
 package be.ugent.idlab.predict.ldests.rdf
 
 import be.ugent.idlab.predict.ldests.lib.rdf.N3Store
+import be.ugent.idlab.predict.ldests.rdf.ontology.RDF
 
 
-actual class TripleStore(val buf: N3Store) {
+actual class TripleStore(val store: N3Store) {
 
     actual val size
-        get() = buf.size
+        get() = store.size
 
     actual val subjects
-        get() = buf.getSubjects()
+        get() = store.getSubjects()
 
     actual val predicates
-        get() = buf.getPredicates()
+        get() = store.getPredicates()
 
     actual val objects
-        get() = buf.getObjects()
+        get() = store.getObjects()
 
-    actual constructor(): this(buf = N3Store())
+    actual constructor(): this(store = N3Store())
 
-    actual fun add(triple: Triple) = buf.add(triple)
+    actual fun add(triple: Triple) = store.add(triple)
 
-    actual fun has(triple: Triple) = buf.has(triple)
+    actual fun has(triple: Triple) = store.has(triple)
 
-    actual fun delete(triple: Triple) = buf.delete(triple)
+    actual fun delete(triple: Triple) = store.delete(triple)
 
-    actual fun insert(block: TripleBuilder.() -> Unit) {
-        TripleBuilder { subject, predicate, `object`: Any ->
+    actual fun insert(context: RDFBuilder.Context, block: RDFBuilder.() -> Unit) {
+        RDFBuilder(context) { subject, predicate, `object`: Any ->
             // this should be correct with the right usage
-            buf.add(
+            store.add(
                 subject = subject,
                 predicate = predicate,
                 `object` = `object`.processed()
@@ -39,8 +40,8 @@ actual class TripleStore(val buf: N3Store) {
     actual companion object;
 
     private fun Any.processed(): Term = when (this) {
-        is TripleBuilder.Blank -> { processed() }
-        is TripleBuilder.List -> { processed() }
+        is RDFBuilder.Blank -> { processed() }
+        is RDFBuilder.List -> { processed() }
         else /* Term hopefully */ -> {
             /* no processing needed */
             @Suppress("UNCHECKED_CAST_TO_EXTERNAL_INTERFACE")
@@ -48,12 +49,12 @@ actual class TripleStore(val buf: N3Store) {
         }
     }
 
-    private fun TripleBuilder.Blank.processed(): Term {
+    private fun RDFBuilder.Blank.processed(): Term {
         // creating a blank node to represent this term
-        val blank = buf.createBlankNode()
+        val blank = store.createBlankNode()
         // pairing all data members to this term as a subject
         data.forEach { (predicate, `object`) ->
-            buf.add(
+            store.add(
                 subject = blank,
                 predicate = predicate,
                 `object` = `object`.processed()
@@ -62,9 +63,23 @@ actual class TripleStore(val buf: N3Store) {
         return blank
     }
 
-    private fun TripleBuilder.List.processed(): Term {
-        // TODO have to do this manually according to the RDF list spec (start & rest w/ blank nodes)
-        return "NOT YET IMPLEMENTED".asLiteral()
+    private fun RDFBuilder.List.processed(): Term {
+        val subj = store.createBlankNode()
+        store.add(
+            subject = subj,
+            predicate = RDF.first,
+            `object` = data.first().processed()
+        )
+        store.add(
+            subject = subj,
+            predicate = RDF.rest,
+            `object` = if (data.size > 1) {
+                RDFBuilder.List(data.subList(1, data.size)).processed()
+            } else {
+                RDF.nil
+            }
+        )
+        return subj
     }
 
 }

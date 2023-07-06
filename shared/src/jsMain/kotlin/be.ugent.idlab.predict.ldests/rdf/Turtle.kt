@@ -6,7 +6,7 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 
-actual class Turtle private constructor(prefixes: Array<out Pair<String, String>>){
+actual class Turtle private constructor(prefixes: Map<String, String>){
 
     private val writer = run {
         val p: dynamic = Any()
@@ -26,10 +26,14 @@ actual class Turtle private constructor(prefixes: Array<out Pair<String, String>
 
     actual companion object {
 
-        actual suspend operator fun invoke(vararg prefixes: Pair<String, String>, block: TripleBuilder.() -> Unit): String {
+        actual suspend operator fun invoke(
+            context: RDFBuilder.Context,
+            prefixes: Map<String, String>,
+            block: RDFBuilder.() -> Unit
+        ): String {
             val writer = Turtle(prefixes = prefixes)
             with (writer) {
-                TripleBuilder { subject, predicate, `object` ->
+                RDFBuilder(context) { subject, predicate, `object` ->
                     writer.writer.add(
                         subject = subject,
                         predicate = predicate,
@@ -43,12 +47,12 @@ actual class Turtle private constructor(prefixes: Array<out Pair<String, String>
     }
 
     private fun Any.processed(): dynamic = when (this) {
-        is TripleBuilder.Blank -> { processed() }
-        is TripleBuilder.List -> { processed() }
+        is RDFBuilder.Blank -> { processed() }
+        is RDFBuilder.List -> { processed() }
         else /* Term hopefully */ -> { /* no processing needed */ this }
     }
 
-    private fun TripleBuilder.Blank.processed(): dynamic = writer.createBlank(
+    private fun RDFBuilder.Blank.processed(): dynamic = writer.createBlank(
         data.map { (predicate, `object`) ->
             dyn(
                 "predicate" to predicate,
@@ -57,7 +61,7 @@ actual class Turtle private constructor(prefixes: Array<out Pair<String, String>
         }.toTypedArray()
     )
 
-    private fun TripleBuilder.List.processed(): dynamic = writer.createList(
+    private fun RDFBuilder.List.processed(): dynamic = writer.createList(
         data.map { it.processed() }.toTypedArray()
     )
 

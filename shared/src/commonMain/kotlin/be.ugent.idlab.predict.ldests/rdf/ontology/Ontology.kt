@@ -8,7 +8,7 @@ sealed interface Ontology {
     companion object {
 
         val ONTOLOGIES = setOf(RDF, SHACL, TREE, SHAPETS, LDESTS)
-        val PREFIXES = ONTOLOGIES.map { it.prefix to it.base_uri }.toTypedArray()
+        val PREFIXES = ONTOLOGIES.associate { it.prefix to it.base_uri }
 
     }
 

@@ -5,8 +5,7 @@ import be.ugent.idlab.predict.ldests.rdf.ontology.*
 import be.ugent.idlab.predict.ldests.rdf.ontology.LDESTS
 import be.ugent.idlab.predict.ldests.util.*
 
-// TODO: change the publisher argument to publisher context receiver once K2 releases
-internal fun TripleBuilder.stream(publisher: Publisher, stream: Stream) = with(publisher) {
+internal fun RDFBuilder.stream(stream: Stream) {
     // creating the shape first, in the same document for now (and thus 'local' uri)
     val shape = "Shape".asNamedNode()
     shape(subject = shape, shape = stream.shape)
@@ -20,7 +19,7 @@ internal fun TripleBuilder.stream(publisher: Publisher, stream: Stream) = with(p
     +stream.uri has LDESTS.constraintSet being constraints
 }
 
-internal fun TripleBuilder.constraintSet(subject: NamedNodeTerm, rules: List<Stream.Rules>) {
+internal fun RDFBuilder.constraintSet(subject: NamedNodeTerm, rules: List<Stream.Rules>) {
     +subject has RDF.type being LDESTS.ConstraintSet
     rules.forEach { rule ->
         val uri = rule.id.asNamedNode()
@@ -33,7 +32,7 @@ internal fun TripleBuilder.constraintSet(subject: NamedNodeTerm, rules: List<Str
     }
 }
 
-internal fun TripleBuilder.constraint(constraint: Map.Entry<NamedNodeTerm, Shape.ConstantProperty>) = blank {
+internal fun RDFBuilder.constraint(constraint: Map.Entry<NamedNodeTerm, Shape.ConstantProperty>) = blank {
     +SHACL.path being constraint.key
     if (constraint.value.values.size == 1) {
         +SHAPETS.constantValue being constraint.value.values.first()
@@ -69,27 +68,25 @@ internal suspend fun InputStream<Binding>.consumeAsRuleData(): Map<String, Map<N
     return result
 }
 
-internal fun TripleBuilder.fragmentRelation(publisher: Publisher, fragment: Stream.Fragment) = with(publisher) {
-    blank {
-        +RDF.type being TREE.GreaterThanOrEqualToRelation // FIXME other relations? custom relation?
-        +TREE.value being fragment.start
-        +TREE.path being fragment.shape.sampleIdentifier.predicate
-        +TREE.node being fragment.uri
-        // should exist here as well due to the stream definition
-        +LDESTS.constraints being fragment.rules.id.asNamedNode()
-    }
+internal fun RDFBuilder.fragmentRelation(fragment: Stream.Fragment) = blank {
+    +RDF.type being TREE.GreaterThanOrEqualToRelation // FIXME other relations? custom relation?
+    +TREE.value being fragment.start
+    +TREE.path being fragment.shape.sampleIdentifier.predicate
+    +TREE.node being fragment.uri
+    // should exist here as well due to the stream definition
+    +LDESTS.constraints being fragment.rules.id.asNamedNode()
 }
 
-internal fun TripleBuilder.fragment(publisher: Publisher, fragment: Stream.Fragment) = with (publisher) {
+internal fun RDFBuilder.fragment(fragment: Stream.Fragment) {
     +fragment.uri has RDF.type being LDESTS.FragmentType
 }
 
-internal fun TripleBuilder.resource(publisher: Publisher, resource: Stream.Fragment.Resource) = with(publisher) {
+internal fun RDFBuilder.resource(resource: Stream.Fragment.Resource) {
     +resource.uri has RDF.type being LDESTS.ResourceType
     +resource.uri has LDESTS.contents being resource.data.asLiteral()
 }
 
-fun TripleBuilder.shape(subject: NamedNodeTerm, shape: Shape) {
+fun RDFBuilder.shape(subject: NamedNodeTerm, shape: Shape) {
     +subject has RDF.type being SHACL.Shape
     +subject has RDF.type being SHAPETS.Type
     +subject has SHACL.targetClass being shape.typeIdentifier.value
@@ -99,7 +96,7 @@ fun TripleBuilder.shape(subject: NamedNodeTerm, shape: Shape) {
     }
 }
 
-internal fun TripleBuilder.property(property: Shape.IdentifierProperty) = blank {
+internal fun RDFBuilder.property(property: Shape.IdentifierProperty) = blank {
     +RDF.type being SHACL.Property
     +RDF.type being SHAPETS.Identifier
     +SHACL.path being property.predicate
@@ -109,14 +106,14 @@ internal fun TripleBuilder.property(property: Shape.IdentifierProperty) = blank 
     +SHACL.maxCount being 1
 }
 
-internal fun TripleBuilder.property(
+internal fun RDFBuilder.property(
     property: Map.Entry<NamedNodeTerm, Shape.Property>
 ) = when (val prop = property.value) {
     is Shape.ConstantProperty -> property(property.key to prop)
     is Shape.VariableProperty -> property(property.key to prop)
 }
 
-internal fun TripleBuilder.property(property: Pair<NamedNodeTerm, Shape.ConstantProperty>) = blank {
+internal fun RDFBuilder.property(property: Pair<NamedNodeTerm, Shape.ConstantProperty>) = blank {
     +RDF.type being SHACL.Property
     +RDF.type being SHAPETS.Constant
     +SHACL.path being property.first
@@ -128,7 +125,7 @@ internal fun TripleBuilder.property(property: Pair<NamedNodeTerm, Shape.Constant
     +SHAPETS.constantValues being list(property.second.values)
 }
 
-internal fun TripleBuilder.property(property: Pair<NamedNodeTerm, Shape.VariableProperty>) = blank {
+internal fun RDFBuilder.property(property: Pair<NamedNodeTerm, Shape.VariableProperty>) = blank {
     +RDF.type being SHACL.Property
     +RDF.type being SHAPETS.Variable
     +SHACL.path being property.first

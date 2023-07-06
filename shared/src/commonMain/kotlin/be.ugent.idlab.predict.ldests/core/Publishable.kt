@@ -1,12 +1,12 @@
 package be.ugent.idlab.predict.ldests.core
 
-import be.ugent.idlab.predict.ldests.rdf.TripleBuilder
+import be.ugent.idlab.predict.ldests.rdf.RDFBuilder
 import be.ugent.idlab.predict.ldests.util.warn
 
 abstract class Publishable(
     // own, relative, path after the host (e.g. `stream/`, `stream/fragment/resource`
-    internal val path: String
-) {
+    override val name: String
+): RDFBuilder.Element {
 
     internal var buffer: PublishBuffer? = null
         private set
@@ -21,16 +21,16 @@ abstract class Publishable(
     }
 
     internal suspend fun onCreate(publisher: Publisher) {
-        publisher.publish(path) { onCreate(publisher) }
+        publisher.publish(name) { onCreate(publisher) }
     }
 
-    protected open fun TripleBuilder.onCreate(publisher: Publisher) {
+    protected open fun RDFBuilder.onCreate(publisher: Publisher) {
         /* nothing to do by default */
     }
 
-    protected suspend fun publish(block: TripleBuilder.(publisher: Publisher) -> Unit) {
+    protected suspend fun publish(block: RDFBuilder.() -> Unit) {
         buffer
-            ?.emit(path = path, data = block)
+            ?.emit(path = name, data = block)
             ?: run {
                 warn("A publishable type experienced spillage (no buffer attached)!")
             }

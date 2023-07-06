@@ -35,7 +35,7 @@ actual suspend fun TripleProvider.query(query: Query): InputStream<Binding>? {
         is LocalResource -> {
             // using an intermediate actual N3 store generated from the file, which is used as a source for
             //  the engine
-            val store = data.buf
+            val store = data.store
             // keeping the store
             arrayOf(store)
         }

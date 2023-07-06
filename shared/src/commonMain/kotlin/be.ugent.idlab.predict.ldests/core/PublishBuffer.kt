@@ -1,6 +1,6 @@
 package be.ugent.idlab.predict.ldests.core
 
-import be.ugent.idlab.predict.ldests.rdf.TripleBuilder
+import be.ugent.idlab.predict.ldests.rdf.RDFBuilder
 import be.ugent.idlab.predict.ldests.util.error
 import be.ugent.idlab.predict.ldests.util.log
 import kotlinx.coroutines.CoroutineScope
@@ -11,10 +11,10 @@ import kotlinx.coroutines.launch
 class PublishBuffer {
 
     // internal flow used to allow attached publishers to interact with the data
-    private val flow = MutableSharedFlow<Pair<String, TripleBuilder.(publisher: Publisher) -> Unit>>()
+    private val flow = MutableSharedFlow<Pair<String, RDFBuilder.() -> Unit>>()
     private val srcs = mutableListOf<Publishable>()
 
-    suspend fun emit(path: String, data: TripleBuilder.(publisher: Publisher) -> Unit) {
+    suspend fun emit(path: String, data: RDFBuilder.() -> Unit) {
         flow.emit(path to data)
     }
 
@@ -24,7 +24,7 @@ class PublishBuffer {
      */
     internal suspend fun Publisher.subscribe(
         scope: CoroutineScope,
-        action: suspend (path: String, item: TripleBuilder.() -> Unit) -> Unit
+        action: suspend (path: String, item: RDFBuilder.() -> Unit) -> Unit
     ): Job? {
         log("Checking ${srcs.size} source(s) for ${this::class.simpleName}")
         run {
@@ -47,7 +47,7 @@ class PublishBuffer {
             }
         }
         return scope.launch {
-            flow.collect { (path, block) -> action(path) { block(this@subscribe) } }
+            flow.collect { (path, block) -> action(path) { block() } }
         }
     }
 

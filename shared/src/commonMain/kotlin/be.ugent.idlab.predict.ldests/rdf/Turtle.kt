@@ -7,8 +7,9 @@ expect class Turtle {
     companion object {
 
         suspend operator fun invoke(
-            vararg prefixes: Pair<String, String>,
-            block: TripleBuilder.() -> Unit
+            context: RDFBuilder.Context,
+            prefixes: Map<String, String> = mapOf(),
+            block: RDFBuilder.() -> Unit
         ): String
 
     }
