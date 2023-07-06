@@ -27,9 +27,8 @@ async function main() {
             "http://www.w3.org/2001/XMLSchema#float"
         ).build();
     const stream = await new LDESTS.Builder("test-stream")
-        .config({ 'window': 5, 'resourceSize': 1000, 'resourceCount': 3 })
+        .config({ 'window': 5, 'resourceSize': 2500 })
         .shape(shape)
-        .queryUri("https://saref.etsi.org/core/relatesToProperty")
         .queryUri("https://saref.etsi.org/core/measurementMadeBy")
         .attachSolidPublisher("http://localhost:3000")
 //         .attachDebugPublisher()

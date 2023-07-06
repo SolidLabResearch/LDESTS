@@ -80,23 +80,26 @@ class Stream private constructor(
      * Inserts the triples provided by the source directly into the buffer through multiple streams, does not return a
      *  new stream as it consumes directly and blocks (suspends) until finished.
      */
-    internal suspend fun TripleProvider.insert() = globalLock.withLock {
-        // src: https://stackoverflow.com/a/55895056
-        coroutineScope {
-            // iterating over all existing rules, using their queries to obtain data, and using the data's timestamp
-            //  to get the appropriate fragment (creating one if necessary)
-            rules.map { rules ->
-                async {
-                    query(rules.shape.query)!!
-                        .consume { binding ->
-                            this@coroutineScope.launch {
-                                findOrCreate(rules = rules, data = binding).forEach {
-                                    it.append(binding)
+    internal suspend fun TripleProvider.insert() {
+        // `=` syntax would return a list of completed async calls, which would be `Unit`
+        globalLock.withLock {
+            // src: https://stackoverflow.com/a/55895056
+            coroutineScope {
+                // iterating over all existing rules, using their queries to obtain data, and using the data's timestamp
+                //  to get the appropriate fragment (creating one if necessary)
+                rules.map { rules ->
+                    async {
+                        query(rules.shape.query)!!
+                            .consume { binding ->
+                                this@coroutineScope.launch {
+                                    findOrCreate(rules = rules, data = binding).forEach {
+                                        it.append(binding)
+                                    }
                                 }
-                            }
-                        }.join()
-                }
-            }.awaitAll()
+                            }.join()
+                    }
+                }.awaitAll()
+            }
         }
     }
 
@@ -114,17 +117,20 @@ class Stream private constructor(
                 // using the first sample to create a fragment id with
                 val identifier = data.id()
                 val fragment = createFragment(
-                    path = "$name${rules.id}_${identifier}/",
+                    path = "$name${rules.id}_${identifier}",
                     configuration = configuration,
                     rules = rules,
                     // let's hope the data is sorted
-                    start = identifier
+                    start = identifier,
+                    onComplete = {
+                        publish(path = this.name) {
+                            fragment(this@createFragment)
+                        }
+                        publish(path = this@Stream.name) {
+                            +this@Stream.uri has TREE.relation being fragmentRelation(this@createFragment)
+                        }
+                    }
                 )
-                // attaching the stream's buffer (if any)
-                buffer?.let { fragment.attach(it) } ?: warn("New fragment was created while no buffer is attached!")
-                publish {
-                    +this@Stream.uri has TREE.relation being fragmentRelation(fragment)
-                }
                 fragments[rules]!!.add(fragment)
                 listOf(fragment)
             }
@@ -136,17 +142,13 @@ class Stream private constructor(
         /** diff between max start and end time found in this entire fragment **/
         val window: Duration = DEFAULT_WINDOW_MIN.minutes,
         /** number of samples per resource (= number of IDs contained in a single resource) **/
-        val resourceSize: Int = DEFAULT_RESOURCE_SIZE,
-        /** total amount of resources per fragment **/
-        val resourceCount: Int = DEFAULT_RESOURCE_COUNT
-        // total amount of samples per fragment = size * count
+        val resourceSize: Int = DEFAULT_RESOURCE_SIZE
     ) {
 
         companion object {
 
             const val DEFAULT_WINDOW_MIN = 30
             const val DEFAULT_RESOURCE_SIZE = 500
-            const val DEFAULT_RESOURCE_COUNT = 10
 
         }
 
@@ -170,47 +172,34 @@ class Stream private constructor(
     }
 
     class Fragment private constructor(
-        path: String,
+        override val name: String,
         // TODO: generic for timestamp, geospatial, ... support?
         internal val start: Long,
         private val configuration: Configuration,
         internal val rules: Rules,
-        private var buf: Resource
-    ): Publishable(name = path) {
+        private val onFinished: suspend Fragment.() -> Unit
+    ): RDFBuilder.Element {
+
+        var count: Int = 0
+            private set
+
+        var data: String = ""
+            private set
 
         init {
-            log("Created a fragment with id `$path`")
+            log("Created a fragment with id `$name`")
+        }
+
+        fun add(data: String) {
+            ++count
+            this.data += data
         }
 
         val shape: Shape
             get() = rules.shape
 
-        class Resource(
-            path: String
-        ): Publishable(name = path) {
-
-            var count: Int = 0
-                private set
-
-            var data: String = ""
-                private set
-
-            fun add(data: String) {
-                ++count
-                this.data += data
-            }
-
-            suspend fun publish() = publish {
-                resource(this@Resource)
-            }
-
-        }
-
         // so only 1 writer/reader is working w/ this fragment's data
         private val lock = Mutex()
-
-        // all fragment content that is COMPLETE!
-        private var resourceCount = 0
 
         private val range = start .. start + configuration.window.inWholeMilliseconds
 
@@ -218,10 +207,7 @@ class Stream private constructor(
          * Returns true if this fragment can store the given data
          */
         internal suspend fun canStore(data: Binding): Boolean = lock.withLock {
-            data.id() in range && (
-                resourceCount < configuration.resourceCount ||
-                buf.count < configuration.resourceSize
-            )
+            data.id() in range && count < configuration.resourceSize
         }
 
         /**
@@ -229,33 +215,20 @@ class Stream private constructor(
          */
         internal suspend fun append(data: Binding) = lock.withLock {
             val result = rules.shape.format(data)
-            buf.add(result)
-            if (buf.count == configuration.resourceSize) {
-                buf.publish()
-                // creating a new resource buffer (TODO: more efficient clearing to reuse memory would be better later)
-                buf = generateResource()
+            add(result)
+            if (count >= configuration.resourceSize) {
+                onFinished()
             }
-        }
-
-        override suspend fun onPublisherAttached(publisher: Publisher): PublisherAttachResult {
-            // TODO: actual checking
-            log("Checking stream compatibility with publisher")
-            publisher.fetch(name)
-            publisher.publish(name) {
-                fragment(this@Fragment)
-            }
-            return PublisherAttachResult.SUCCESS
         }
 
         /**
          * Flushes the existing buffer, so it can be published, even when it is small
          */
         internal suspend fun flush() = lock.withLock {
-            if (buf.count == 0) {
+            if (count == 0) {
                 return@withLock
             }
-            buf.publish()
-            buf = generateResource()
+            onFinished()
         }
 
         companion object {
@@ -264,32 +237,19 @@ class Stream private constructor(
                 path: String,
                 start: Long,
                 configuration: Configuration,
-                rules: Rules
+                rules: Rules,
+                onComplete: suspend Fragment.() -> Unit
             ): Fragment {
                 return Fragment(
-                    path = path,
+                    name = path,
                     start = start,
                     configuration = configuration,
                     rules = rules,
-                    buf = generateResource(path, 0, buffer)
+                    onFinished = onComplete
                 )
             }
 
-            private suspend fun generateResource(
-                location: String,
-                id: Int,
-                buffer: PublishBuffer?
-            ): Resource {
-                return Resource(
-                    path = "${location}ID_${id}"
-                ).apply {
-                    buffer?.let { attach(it) } ?: warn("A new resource for a fragment was created while no buffer was attached!")
-                }
-            }
-
         }
-
-        private suspend fun generateResource() = Companion.generateResource(name, ++resourceCount, buffer)
 
     }
 

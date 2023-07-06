@@ -9,6 +9,7 @@ expect class TripleStore() {
     val objects:    Array<Term>
 
     fun add(triple: Triple)
+    fun add(subject: Term, predicate: NamedNodeTerm, `object`: Term)
     fun has(triple: Triple)
     fun delete(triple: Triple)
 

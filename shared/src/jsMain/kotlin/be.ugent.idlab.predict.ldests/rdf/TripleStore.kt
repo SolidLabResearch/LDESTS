@@ -20,6 +20,8 @@ actual class TripleStore(val store: N3Store) {
 
     actual constructor(): this(store = N3Store())
 
+    actual fun add(subject: Term, predicate: NamedNodeTerm, `object`: Term) = store.add(subject, predicate, `object`)
+
     actual fun add(triple: Triple) = store.add(triple)
 
     actual fun has(triple: Triple) = store.has(triple)

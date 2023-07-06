@@ -28,9 +28,12 @@ abstract class Publishable(
         /* nothing to do by default */
     }
 
-    protected suspend fun publish(block: RDFBuilder.() -> Unit) {
+    // FIXME: this path MAY BE ignored in favour of `name` in some Builder contexts(?)! Can lead to bugs
+    //  when using the `uri` generated from this context when the path is modified (e.g. .meta changes to
+    //  a non-publishable but Builder.Element type)
+    protected suspend fun publish(path: String = name, block: RDFBuilder.() -> Unit) {
         buffer
-            ?.emit(path = name, data = block)
+            ?.emit(path = path, data = block)
             ?: run {
                 warn("A publishable type experienced spillage (no buffer attached)!")
             }

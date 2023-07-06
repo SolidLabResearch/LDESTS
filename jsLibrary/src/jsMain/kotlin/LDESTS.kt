@@ -44,11 +44,12 @@ class LDESTSJS private constructor(
 
         @ExternalUse
         fun config(config: dynamic): BuilderJS {
-            builder.config(Stream.Configuration(
-                window = (config.window as? Int)?.minutes ?: Stream.Configuration.DEFAULT_WINDOW_MIN.minutes,
-                resourceSize = config.resourceSize as? Int ?: Stream.Configuration.DEFAULT_RESOURCE_SIZE,
-                resourceCount = config.resourceCount as? Int ?: Stream.Configuration.DEFAULT_RESOURCE_COUNT,
-            ))
+            builder.config(
+                Stream.Configuration(
+                    window = (config.window as? Int)?.minutes ?: Stream.Configuration.DEFAULT_WINDOW_MIN.minutes,
+                    resourceSize = config.resourceSize as? Int ?: Stream.Configuration.DEFAULT_RESOURCE_SIZE
+                )
+            )
             return this
         }
 

@@ -79,11 +79,7 @@ internal fun RDFBuilder.fragmentRelation(fragment: Stream.Fragment) = blank {
 
 internal fun RDFBuilder.fragment(fragment: Stream.Fragment) {
     +fragment.uri has RDF.type being LDESTS.FragmentType
-}
-
-internal fun RDFBuilder.resource(resource: Stream.Fragment.Resource) {
-    +resource.uri has RDF.type being LDESTS.ResourceType
-    +resource.uri has LDESTS.contents being resource.data.asLiteral()
+    +fragment.uri has LDESTS.contents being fragment.data.asLiteral()
 }
 
 fun RDFBuilder.shape(subject: NamedNodeTerm, shape: Shape) {
