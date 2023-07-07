@@ -1,13 +1,10 @@
 package be.ugent.idlab.predict.ldests.rdf
 
 import be.ugent.idlab.predict.ldests.lib.node.finished
-import be.ugent.idlab.predict.ldests.lib.rdf.ComunicaBinding
-import be.ugent.idlab.predict.ldests.lib.rdf.ComunicaQueryEngine
-import be.ugent.idlab.predict.ldests.lib.rdf.N3Store
-import be.ugent.idlab.predict.ldests.lib.rdf.N3Triple
+import be.ugent.idlab.predict.ldests.lib.rdf.*
 import be.ugent.idlab.predict.ldests.util.InputStream
+import be.ugent.idlab.predict.ldests.util.dyn
 import be.ugent.idlab.predict.ldests.util.error
-import be.ugent.idlab.predict.ldests.util.log
 import be.ugent.idlab.predict.ldests.util.toStream
 import kotlinx.coroutines.await
 
@@ -29,29 +26,48 @@ actual suspend fun InputStream<N3Triple>.query(query: Query): InputStream<Bindin
         .toStream()
 }
 
-actual suspend fun TripleProvider.query(query: Query): InputStream<Binding>? {
-    val options: dynamic = Any()
-    options.sources = when (this) {
-        is LocalResource -> {
-            // using an intermediate actual N3 store generated from the file, which is used as a source for
-            //  the engine
-            val store = data.store
-            // keeping the store
-            arrayOf(store)
+actual suspend fun TripleProvider.query(query: Query): InputStream<Binding>? = when (this) {
+    is LocalResource -> {
+        // using an intermediate actual N3 store generated from the file, which is used as a source for
+        //  the engine
+        val store = data.store
+        // keeping the store
+        val options = dyn("sources" to arrayOf(store))
+        try {
+            ComunicaQueryEngine()
+                .query(query.sparql, options)
+                .await()
+                .toStream()
+        } catch (t: Throwable) {
+            error("Query failed: ${t.message}")
+            null
         }
-        is RemoteResource -> arrayOf(url)
-        else -> { throw RuntimeException("Unrecognized triple provider used in `query`!") }
     }
-    log("Applying querying (variables ${query.variables})")
-    return try {
-        ComunicaQueryEngine()
-            .query(query.sparql, options)
-            .await()
-            .toStream()
-    } catch (t: Throwable) {
-        error("Query failed: ${t.message}")
-        null
+    is RemoteResource -> {
+        val options = dyn("sources" to arrayOf(url))
+        try {
+            ComunicaQueryEngine()
+                .query(query.sparql, options)
+                .await()
+                .toStream()
+        } catch (t: Throwable) {
+            error("Query failed: ${t.message}")
+            null
+        }
     }
+    is StreamingResource -> {
+        val options = dyn("sources" to arrayOf(stream))
+        try {
+            IncremunicaQueryEngine()
+                .query(query.sparql, options)
+                .await()
+                .toStream()
+        } catch (t: Throwable) {
+            error("Query failed: ${t.message}")
+            null
+        }
+    }
+    else -> { throw RuntimeException("Unrecognized triple provider used in `query`!") }
 }
 
 actual operator fun ComunicaBinding.get(variable: String): Term? = get(variable)

@@ -2,6 +2,8 @@ package be.ugent.idlab.predict.ldests.rdf
 
 import be.ugent.idlab.predict.ldests.lib.node.createReadFileStream
 import be.ugent.idlab.predict.ldests.lib.rdf.N3Store
+import be.ugent.idlab.predict.ldests.lib.rdf.StreamingStore
+import be.ugent.idlab.predict.ldests.util.InputStream
 import be.ugent.idlab.predict.ldests.util.join
 import be.ugent.idlab.predict.ldests.util.log
 import be.ugent.idlab.predict.ldests.util.mapToTriples
@@ -29,6 +31,16 @@ actual class LocalResource private constructor(
 
         actual fun wrap(buffer: TripleStore) = LocalResource(data = buffer)
 
+    }
+
+}
+
+actual class StreamingResource actual constructor(): TripleProvider {
+
+    internal val stream = StreamingStore()
+
+    actual fun add(stream: InputStream<Triple>) {
+        this.stream.import(stream)
     }
 
 }

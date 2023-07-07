@@ -1,5 +1,6 @@
 import org.jetbrains.kotlin.gradle.dsl.KotlinJsCompile
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension
+import org.jetbrains.kotlin.incremental.createDirectory
 
 plugins {
     kotlin("multiplatform")
@@ -37,6 +38,12 @@ kotlin {
                 val util = projectDir.resolve("src/jsMain/js/build/base-1.0.0.tgz").canonicalFile
                 implementation(npm("base", "file:$util"))
 
+                val incremunica = projectDir.resolve("src/jsMain/build/comunica-query-sparql-incremental-1.0.0.tgz").canonicalFile
+                implementation(npm("@comunica/query-sparql-incremental", "file:$incremunica"))
+
+                val streamingStore = projectDir.resolve("src/jsMain/build/comunica-incremental-rdf-streaming-store-1.0.0.tgz").canonicalFile
+                implementation(npm("@comunica/incremental-rdf-streaming-store", "file:$streamingStore"))
+
             }
         }
 
@@ -51,6 +58,42 @@ afterEvaluate {
         doFirst { mkdir("${workingDir.parent}/build") }
     }
     project.tasks.getByName("build").dependsOn(buildBaseUtilTask)
+    // task to integrate incremunica
+    val configureIncremunicaEngine = tasks.create("configureIncremunicaEngine", Exec::class.java) {
+        val build = File("${workingDir.absolutePath}/" + File("src/jsMain/build"))
+        if (!File("$build/incremunica/").exists()) {
+            exec {
+                workingDir = build
+                workingDir.createDirectory()
+                commandLine("git", "clone", "https://github.com/maartyman/incremunica.git")
+            }
+            exec {
+                workingDir = File("$build/incremunica")
+                commandLine("yarn", "install")
+            }
+        }
+        workingDir = File("$build/incremunica/engines/query-sparql-incremental")
+        commandLine("npm", "pack", "--pack-destination", build)
+    }
+    project.tasks.getByName("build").dependsOn(configureIncremunicaEngine)
+    val configureIncremunicaStreamingStore = tasks.create("configureIncremunicaStreamingStore", Exec::class.java) {
+        val build = File("${workingDir.absolutePath}/" + File("src/jsMain/build"))
+        if (!File("$build/incremunica/").exists()) {
+            exec {
+                workingDir = build
+                workingDir.createDirectory()
+                commandLine("git", "clone", "https://github.com/maartyman/incremunica.git")
+            }
+            exec {
+                workingDir = File("$build/incremunica")
+                commandLine("yarn", "install")
+            }
+        }
+        workingDir = File("$build/incremunica/packages/incremental-rdf-streaming-store")
+        commandLine("npm", "pack", "--pack-destination", build)
+    }
+    project.tasks.getByName("build").dependsOn(configureIncremunicaEngine)
+    project.tasks.getByName("build").dependsOn(configureIncremunicaStreamingStore)
 }
 
 // Use a proper version of webpack, TODO remove after updating to Kotlin 1.9.
