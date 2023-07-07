@@ -58,6 +58,7 @@ kotlin {
         val jsMain by getting {
             dependencies {
                 implementation(project(":shared"))
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core-js:1.7.2")
             }
         }
     }
