@@ -22,6 +22,8 @@ fun Iterable<Pair<String, dynamic>>.toDynamic(): dynamic {
     return dyn(this)
 }
 
+inline fun keys(obj: dynamic) = js("Object").keys(obj).unsafeCast<Array<String>>()
+
 fun time(): String = (Date.now() - _start).toString().padStart(6, '0')
 
 fun fmt(level: String, loc: String?, text: String): String {

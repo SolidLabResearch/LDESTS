@@ -3,8 +3,11 @@ package be.ugent.idlab.predict.ldests.core
 import be.ugent.idlab.predict.ldests.core.Shape.IdentifierProperty.Companion.BINDING_IDENTIFIER
 import be.ugent.idlab.predict.ldests.core.Shape.Property.Companion.query
 import be.ugent.idlab.predict.ldests.rdf.*
+import be.ugent.idlab.predict.ldests.rdf.ontology.RDF
 import be.ugent.idlab.predict.ldests.util.log
 import be.ugent.idlab.predict.ldests.util.stringified
+import kotlinx.coroutines.flow.flow
+import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
@@ -15,18 +18,39 @@ class Shape private constructor(
     val properties: Map<NamedNodeTerm, Property>
 ) {
 
+    // LUTs for parsing the data: non-encoded and encoded values
+    // the cast is correct here as only `ConstantProperty` can have `indices` initialised as `null`
+    @Suppress("UNCHECKED_CAST")
+    private val constants = properties.toList().filter { it.second.index == null } as List<Pair<NamedNodeTerm, ConstantProperty>>
+    private val variables = properties.toList().filter { it.second.index != null }.sortedBy { it.second.index!! }
+    // slots used by constants for lookup for this specific shape
+    private val slots: Map<NamedNodeTerm, Int> = run {
+        val map = mutableMapOf<NamedNodeTerm, Int>()
+        // starting with an offset of 1, as this is where the identifier property is put
+        var offset = 1
+        // variables are already sorted
+        variables.forEach { (predicate, property) ->
+            val count = (property as? VariableProperty)?.count ?: 1
+            if (property is ConstantProperty) {
+                map[predicate] = offset
+            }
+            offset += count
+        }
+        map
+    }
+
     override fun equals(other: Any?): Boolean {
-        val shape = other as? Shape ?: return false
-        if (typeIdentifier != shape.typeIdentifier || sampleIdentifier != shape.sampleIdentifier) {
-            log("Base configuration mismatch: ${typeIdentifier.stringified()} != ${shape.typeIdentifier.stringified()} | ${sampleIdentifier.stringified()} != ${shape.sampleIdentifier.stringified()}")
+        if (other !is Shape) { return false }
+        if (typeIdentifier != other.typeIdentifier || sampleIdentifier != other.sampleIdentifier) {
+            log("Base configuration mismatch: ${typeIdentifier.stringified()} != ${other.typeIdentifier.stringified()} | ${sampleIdentifier.stringified()} != ${other.sampleIdentifier.stringified()}")
             return false
         }
-        if (properties.size != shape.properties.size || properties.keys.any { it !in other.properties.keys }) {
+        if (properties.size != other.properties.size || properties.keys.any { it !in other.properties.keys }) {
             log("Available properties mismatch")
             return false
         }
         properties.forEach { (predicate, firstValue) ->
-            val secondValue = shape.properties[predicate]!!
+            val secondValue = other.properties[predicate]!!
             if (firstValue != secondValue) {
                 log("Existing properties mismatch: `${predicate.value}`: ``${firstValue} - `${secondValue}`")
                 return false
@@ -57,7 +81,8 @@ class Shape private constructor(
     /** Other properties, can be defined >= 0 times **/
     sealed class Property(
         /* Identifier used in the sparql query, `null` if it is not bound outside of the query */
-        val identifier: String?
+        val identifier: String?,
+        val index: Int?
     ) {
 
         protected abstract val query: String
@@ -73,8 +98,12 @@ class Shape private constructor(
 
         }
 
+        abstract fun decode(data: List<String>): List<Term>
+
     }
 
+    // TODO: split the two constant cases up
+    // TODO: make the non-binding a different property type
     class ConstantProperty: Property {
 
         /* NamedNodeTerm, BlankNodeTerm and LiteralTerm possible, but Literal's shouldn't be used */
@@ -82,7 +111,13 @@ class Shape private constructor(
         private val id: Int?
         override val query: String
 
-        constructor(values: List<Term>, id: Int): super(identifier = "c${id}") {
+        constructor(
+            values: List<Term>,
+            id: Int
+        ): super(
+            identifier = "c${id}",
+            index = id
+        ) {
             require(values.size > 1)
             this.values = values
             this.id = id
@@ -104,7 +139,10 @@ class Shape private constructor(
             this.query = "?cv${id} .\n$filter -1${")".repeat(this.values.size)} AS ?$identifier)"
         }
 
-        constructor(value: Term): super(identifier = /* Not bound externally */ null) {
+        constructor(value: Term): super(
+            identifier = /* Not bound externally */ null,
+            index = null // takes up no space
+        ) {
             this.values = listOf(value)
             this.id = null
             // creating the query
@@ -129,6 +167,11 @@ class Shape private constructor(
             return result
         }
 
+        override fun decode(data: List<String>): List<Term> {
+            require(values.size > 1 && data.size == 1)
+            return listOf(values[data.first().toInt()])
+        }
+
     }
 
     class VariableProperty(
@@ -136,7 +179,8 @@ class Shape private constructor(
         val count: Int,
         id: Int
     ): Property(
-        identifier = "v${id}"
+        identifier = "v${id}",
+        index = id
     ) {
 
         override val query = "?$identifier"
@@ -157,6 +201,11 @@ class Shape private constructor(
             return result
         }
 
+        override fun decode(data: List<String>): List<Term> {
+            // TODO: use the type to know what exact conversion needs to take place
+            return data.map { it.toFloat().asLiteral() }
+        }
+
     }
 
     companion object {
@@ -172,13 +221,23 @@ class Shape private constructor(
             return this.toInstant(TimeZone.of("UTC")).toEpochMilliseconds()
         }
 
+        fun Map<NamedNodeTerm, ConstantProperty>.stringified() = asIterable().joinToString { (predicate, value) ->
+            "${predicate.value} - ${value.values.joinToString(", ") { it.value }}"
+        }
+
     }
 
     class BuildScope(private val typeIdentifier: ClassProperty) {
 
         private val properties = mutableMapOf<NamedNodeTerm, Property>()
+        // current index used for creating unique identifiers and indices for the resulting format
+        // not the same as `properties.size`, as this count does NOT increment from constant properties not
+        //  taking up indices in the resulting format
+        private var variableCount = 0
 
         fun apply(constraints: Map<NamedNodeTerm, Property>) {
+            // TODO: change this method to not trake in direct properties, so they can be configured here w/ correct ID
+            //  instead
             properties.putAll(constraints)
         }
 
@@ -186,8 +245,9 @@ class Shape private constructor(
             properties[path.asNamedNode()] = VariableProperty(
                 type = type.asNamedNode(),
                 count = count,
-                id = properties.size
+                id = variableCount
             )
+            variableCount += count
         }
 
         fun constant(path: String, vararg value: String) {
@@ -199,7 +259,7 @@ class Shape private constructor(
             } else {
                 properties[path.asNamedNode()] = ConstantProperty(
                     values = value.map { it.asNamedNode() },
-                    id = properties.size
+                    id = variableCount++
                 )
             }
         }
@@ -232,12 +292,123 @@ class Shape private constructor(
         )
     }
 
-    fun format(result: Binding): String {
-        return "${result.id()}:" + properties.values.filter { it.identifier != null }.joinToString(";") { result[it.identifier!!]!!.value }
+    fun encode(result: Binding): String {
+        return "${result.id()}:" + variables.joinToString(";") { result[it.second.identifier!!]!!.value } + ';'
     }
 
-    // TODO: getters for constrained constants, unconstrained constants, ...
+    fun decode(
+        publisher: Publisher,
+        range: LongRange,
+        constraints: Map<NamedNodeTerm, Iterable<NamedNodeTerm>>,
+        source: Iterable<Char>
+    ) = flow {
+        // extracting the values
+        val iter = source.iterator()
+        // reading in chunks of max 256, assuming no data is longer than 256 byte for now
+        val buf = CharArray(256)
+        var i = 0
+        // used to form the subject with
+        var j = 0
+        // the various extracted fields, first one should be the text representation of the identifier
+        val data = mutableListOf<String>()
+        // callback used when data is found
+        suspend fun process() {
+            // checking the id to see if there's any publishing requested
+            if (data.isEmpty() || data.first().toLong() !in range) return
+            // checking all constraints first to see if they match up prior to generating any triples
+            val relevant = constraints.all { (predicate, values) ->
+                // finding the slot index; if `null`, the query constraint is not part of the rule set variables, and is
+                //  thus already matched when querying over fragments
+                val index = slots[predicate] ?: return@all true
+                val decoded = (properties[predicate]!! as ConstantProperty).decode(data.subList(index, index + 1)).first()
+                decoded in values
+            }
+            if (!relevant) return
+            // processing the data & sending it through
+            data.decode(publisher.context, constraints, j++).forEach { emit(it) }
+        }
+        while (iter.hasNext()) {
+            when (val c = iter.next()) {
+                ':' -> {
+                    // current buffer content denotes the identifier property, so using the buffer as source for
+                    //  new triples, and inserting the current buf for the new entry
+                    process()
+                    // resetting the data, and setting the identifier of the next entry
+                    data.clear()
+                    data.add(buf.concatToString(endIndex = i))
+                    i = 0
+                }
+                ';' -> {
+                    // current buffer denotes a data entry, inserting it as such
+                    data.add(buf.concatToString(endIndex = i))
+                    i = 0
+                }
+                else -> {
+                    // simply appending the data
+                    buf[i++] = c
+                }
+            }
+        }
+        // emitting the last set of triples
+        process()
+    }
 
+    // helper for the method above
+    /**
+     * Explained by the example below, for a shape consisting out of Long time identifier, one constant value
+     *  and one variable value. `this` should contain ["time", "index", "value"]. The returned triples is the type
+     *  triple, the identifier triple, all constant properties (exact 1 constant value from the rule set) and lastly
+     *  the variable triples from the resource itself
+     */
+    private fun List<String>.decode(
+        context: RDFBuilder.Context,
+        constraints: Map<NamedNodeTerm, Iterable<NamedNodeTerm>>,
+        id: Int
+    ) = buildTriples(context) {
+        val subject = with (context) { "Sample_$id".absolutePath }
+        +subject has RDF.type being typeIdentifier.value
+        +subject has sampleIdentifier.predicate being Instant.fromEpochMilliseconds(first().toLong()).asLiteral()
+        constants.forEach { (predicate, constant) ->
+            // there can only be one as seen by the construction of this collection
+            +subject has predicate being constant.values.first()
+        }
+        // starting from 1, as the identifier took the very first index
+        var index = 1
+        variables.forEach { (predicate, property) ->
+            val count = (property as? VariableProperty)?.count ?: 1
+            property.decode(subList(index, index + count))
+                .forEach { value ->
+                    +subject has predicate being value
+                }
+            index += count
+        }
+    }
+
+    /**
+     * Validates compatibility of this shape with the provided constraints
+     */
+    fun complies(constraints: Map<NamedNodeTerm, Property>): Boolean {
+        if (constraints.keys.any { it !in properties }) {
+            return false
+        }
+        return constraints.all { (property, value) -> properties[property]!!.covers(value) }
+    }
+
+    /**
+     * Validates compatibility of this shape with the provided constants
+     */
+    fun complies(constraints: Map<NamedNodeTerm, Iterable<NamedNodeTerm>>): Boolean {
+        if (constraints.keys.any { it !in properties }) {
+            return false
+        }
+        return constraints.all { (property, value) ->
+            (properties[property] as? ConstantProperty)
+                ?.values
+                ?.let { values ->
+                    value.all { value -> value in values }
+                } ?: false
+        }
+    }
 
     /**
      * Narrows the broader shape (`this`) with the provided constraints

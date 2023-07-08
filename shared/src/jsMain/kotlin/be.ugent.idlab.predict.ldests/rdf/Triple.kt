@@ -19,3 +19,5 @@ actual fun Long.asLiteral() = createN3Literal(this)
 actual fun Float.asLiteral() = createN3Literal(this)
 
 actual fun Double.asLiteral() = createN3Literal(this)
+
+internal actual fun literal(content: String, type: NamedNodeTerm) = createN3Literal(content, type)

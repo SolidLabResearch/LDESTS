@@ -39,6 +39,8 @@ actual class TripleStore(val store: N3Store) {
         }.apply(block)
     }
 
+    actual fun asIterable() = store.getQuads().asIterable()
+
     actual companion object;
 
     private fun Any.processed(): Term = when (this) {

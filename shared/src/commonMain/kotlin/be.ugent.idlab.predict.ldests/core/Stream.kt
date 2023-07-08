@@ -1,6 +1,7 @@
 package be.ugent.idlab.predict.ldests.core
 
 import be.ugent.idlab.predict.ldests.core.Shape.Companion.id
+import be.ugent.idlab.predict.ldests.core.Shape.Companion.stringified
 import be.ugent.idlab.predict.ldests.core.Stream.Fragment.Companion.createFragment
 import be.ugent.idlab.predict.ldests.rdf.*
 import be.ugent.idlab.predict.ldests.rdf.ontology.TREE
@@ -8,6 +9,8 @@ import be.ugent.idlab.predict.ldests.util.*
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -18,10 +21,12 @@ class Stream private constructor(
     name: String,
     private val configuration: Configuration,
     internal val shape: Shape,
-    internal val rules: List<Rules>
+    rules: List<Rules>
 ): Publishable(
     name = "$name/"
 ) {
+
+    internal val rules = rules.associateBy { it.name }
 
     // "global" lock, active while data is being added/flushed/...
     private val globalLock = Mutex()
@@ -35,19 +40,19 @@ class Stream private constructor(
     override suspend fun onPublisherAttached(publisher: Publisher): PublisherAttachResult {
         val loc = publisher.fetch(name)
             ?: return PublisherAttachResult.NEW // nothing to check against, so it's new
-        val existingShape = loc.extractShapeInformation(with (publisher.context) { uri })
+        val existingShape = loc.extractShapeInformation(publisher.context.run { uri })
             ?: return PublisherAttachResult.NEW // shape is either non-existent, or badly configured
         if (shape != existingShape) {
             error("Publisher shape and stream shape are incompatible! Not attaching...")
             return PublisherAttachResult.FAILURE
         }
-        loc.extractRuleInformation(with (publisher.context) { uri })?.let { existingRules ->
+        loc.extractRuleInformation(publisher.context.run { uri })?.let { existingRules ->
             // currently only supporting exact matches, with existing rules being a subset of configured rules, requiring matching IDs;
             // TODO later publisher-specific rule mapping can be done (matching IDs based on props)
             val match = existingRules.all { (ruleId, ruleProps) ->
                 // not terribly efficient, oh well
                 ruleProps.map { it.key.value to it.value.toSet() }.toSet() ==
-                    rules.find { it.id == ruleId }?.constraints?.map { it.key.value to it.value.values.toSet() }?.toSet()
+                    rules[ruleId]?.constraints?.map { it.key.value to it.value.values.toSet() }?.toSet()
             }
             if (!match) {
                 error("Not all rules are compatible between to be attached publisher and existing stream! Not attaching...")
@@ -58,7 +63,6 @@ class Stream private constructor(
                 TODO()
             }
         }
-        // TODO: only publish when NEW (do this somewhere else as this func already returns the status?)
         return PublisherAttachResult.SUCCESS
     }
 
@@ -87,7 +91,7 @@ class Stream private constructor(
             coroutineScope {
                 // iterating over all existing rules, using their queries to obtain data, and using the data's timestamp
                 //  to get the appropriate fragment (creating one if necessary)
-                rules.map { rules ->
+                rules.values.map { rules ->
                     async {
                         query(rules.shape.query)!!
                             .consume { binding ->
@@ -117,7 +121,7 @@ class Stream private constructor(
                 // using the first sample to create a fragment id with
                 val identifier = data.id()
                 val fragment = createFragment(
-                    path = "$name${rules.id}_${identifier}",
+                    path = "$name${rules.name}_${identifier}",
                     configuration = configuration,
                     rules = rules,
                     // let's hope the data is sorted
@@ -129,11 +133,98 @@ class Stream private constructor(
                         publish(path = this@Stream.name) {
                             +this@Stream.uri has TREE.relation being fragmentRelation(this@createFragment)
                         }
+                        // forgetting about this fragment to save memory - reading data is always done from a publisher
+                        //  anyway
+                        fragments[rules]!!.remove(this)
                     }
                 )
                 fragments[rules]!!.add(fragment)
                 listOf(fragment)
             }
+    }
+
+    suspend fun query(
+        publisher: Publisher,
+        constraints: Map<NamedNodeTerm, Iterable<NamedNodeTerm>>,
+        range: LongRange = 0 until Long.MAX_VALUE
+    ): Flow<Triple> = coroutineScope {
+        // getting the relevant fragments first, so only these get queried
+        val fragments = getFragments(publisher = publisher, constraints = constraints, range = range)
+        log("Querying over fragments `${fragments.joinToString(", ") { it.name }}`")
+        fragments
+            .map { (name, _, rules) ->
+                async {
+                    var data: String? = null
+                    publisher.fetch(name)
+                        ?.query(FRAGMENT_CONTENTS_SPARQL_QUERY(publisher.context.run { name.absolutePath }))
+                        ?.consume { data = it["data"]!!.value }
+                        ?.join()
+                        ?: warn("Fragment `${name}` failed to resolve!")
+                    data?.let { rules.shape.decode(
+                        publisher = publisher,
+                        range = range,
+                        constraints = constraints,
+                        source = it.asIterable()
+                    ) }
+                }
+            }
+            .awaitAll()
+            .filterNotNull()
+            .merge()
+    }
+
+    private suspend fun getFragments(
+        publisher: Publisher,
+        constraints: Map<NamedNodeTerm, Iterable<NamedNodeTerm>>,
+        range: LongRange
+    ): List<Fragment.Properties> {
+        // getting all relevant rules based on the provided constraints
+        val relevant = rules.values.filter { it.shape.complies(constraints) }.map { it.name }
+        if (relevant.isEmpty()) {
+            warn("The provided constraints resulted in no queryable constraint sets!")
+            return listOf()
+        }
+        // getting all fragments from the publisher, and seeing what fragments with the relevant rules can be used
+        val available = publisher.readFragmentData()
+        if (available.isEmpty()) {
+            warn("The provided publisher contains no fragments to query over!")
+            return listOf()
+        }
+        // filtering for those that are relevant
+        val targets = available.filter {
+            val fragmentRange = it.start .. it.start + configuration.window.inWholeMilliseconds
+            it.rules.name in relevant && !(range.last < fragmentRange.first || fragmentRange.last < range.first)
+        }
+        if (targets.isEmpty()) {
+            warn("The provided publisher contains no relevant fragments to query over!")
+            warn("Available constraint sets are:")
+            available.joinToString(", ") { it.rules.constraints.stringified() }.apply { warn(this) }
+            warn("Available time ranges are:")
+            available.joinToString(", ") { "[${it.start} .. ${it.start + configuration.window.inWholeMilliseconds}]" }
+        }
+        return targets
+    }
+
+    /**
+     * Extracts all available fragment data from the given publisher at that point
+     */
+    private suspend fun Publisher.readFragmentData(): List<Fragment.Properties> = with (context) {
+        val properties = mutableListOf<Fragment.Properties>()
+        fetch(path = name)?.query(FRAGMENT_RELATION_SPARQL_QUERY(context.run { uri }))
+            ?.consume { binding ->
+                // every binding contains a fragment that simply has to map to shape information
+                with (context) {
+                    properties.add(
+                        Fragment.Properties(
+                            name = (binding["name"]!! as NamedNodeTerm).relativePath,
+                            start = (binding["start"]!! as LiteralTerm).value.toLong(),
+                            rules = rules[(binding["constraints"]!! as NamedNodeTerm).relativePath.substringAfterLast('/')]!!
+                        )
+                    )
+                }
+            }?.join()
+            ?: warn("Tried to read fragment data, but failed to query `${this@readFragmentData::class.simpleName}`.")
+        properties
     }
 
     // TODO: generic for ranges and stuff to support more than just timestamps?
@@ -156,11 +247,13 @@ class Stream private constructor(
 
     class Rules(
         internal val constraints: Map<NamedNodeTerm, Shape.ConstantProperty>,
-        val id: String = constraints.values.joinToString("") { value ->
+        id: String = constraints.values.joinToString("") { value ->
             value.values.first().value.retainLetters().takeLast(7).lowercase()
         },
         parent: Shape
-    ) {
+    ): RDFBuilder.Element {
+
+        override val name = id
 
         /**
          * The associated shape with this rule set.
@@ -172,19 +265,25 @@ class Stream private constructor(
     }
 
     class Fragment private constructor(
-        override val name: String,
-        // TODO: generic for timestamp, geospatial, ... support?
-        internal val start: Long,
+        internal val properties: Properties,
         private val configuration: Configuration,
-        internal val rules: Rules,
         private val onFinished: suspend Fragment.() -> Unit
-    ): RDFBuilder.Element {
+    ): RDFBuilder.Element by properties {
 
-        var count: Int = 0
-            private set
+        data class Properties(
+            override val name: String,
+            // TODO: generic for timestamp, geospatial, ... support?
+            internal val start: Long,
+            internal val rules: Rules
+        ): RDFBuilder.Element
 
-        var data: String = ""
-            private set
+        private val range = properties.start .. properties.start + configuration.window.inWholeMilliseconds
+
+        private var count: Int = 0
+
+        private val _data = StringBuilder()
+        val data: String
+            get() = _data.toString()
 
         init {
             log("Created a fragment with id `$name`")
@@ -192,16 +291,14 @@ class Stream private constructor(
 
         fun add(data: String) {
             ++count
-            this.data += data
+            this._data.append(data)
         }
 
         val shape: Shape
-            get() = rules.shape
+            get() = properties.rules.shape
 
         // so only 1 writer/reader is working w/ this fragment's data
         private val lock = Mutex()
-
-        private val range = start .. start + configuration.window.inWholeMilliseconds
 
         /**
          * Returns true if this fragment can store the given data
@@ -214,7 +311,7 @@ class Stream private constructor(
          * Adds the binding to the fragment
          */
         internal suspend fun append(data: Binding) = lock.withLock {
-            val result = rules.shape.format(data)
+            val result = properties.rules.shape.encode(data)
             add(result)
             if (count >= configuration.resourceSize) {
                 onFinished()
@@ -241,10 +338,12 @@ class Stream private constructor(
                 onComplete: suspend Fragment.() -> Unit
             ): Fragment {
                 return Fragment(
-                    name = path,
-                    start = start,
+                    properties = Properties(
+                        name = path,
+                        start = start,
+                        rules = rules
+                    ),
                     configuration = configuration,
-                    rules = rules,
                     onFinished = onComplete
                 )
             }

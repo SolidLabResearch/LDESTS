@@ -15,6 +15,8 @@ expect class TripleStore() {
 
     fun insert(context: RDFBuilder.Context, block: RDFBuilder.() -> Unit)
 
+    fun asIterable(): Iterable<Triple>
+
     companion object
 
 }

@@ -2,7 +2,12 @@
 import be.ugent.idlab.predict.ldests.core.LDESTS
 import be.ugent.idlab.predict.ldests.core.MemoryPublisher
 import be.ugent.idlab.predict.ldests.core.Stream
+import be.ugent.idlab.predict.ldests.lib.rdf.N3Store
+import be.ugent.idlab.predict.ldests.lib.rdf.N3Triple
+import be.ugent.idlab.predict.ldests.rdf.NamedNodeTerm
 import be.ugent.idlab.predict.ldests.rdf.asNamedNode
+import be.ugent.idlab.predict.ldests.solid.SolidPublisher
+import be.ugent.idlab.predict.ldests.util.keys
 import kotlin.time.Duration.Companion.minutes
 
 /**
@@ -16,8 +21,9 @@ class LDESTSJS private constructor(
     private val parent: LDESTS
 ) {
 
+    @Suppress("NON_EXPORTABLE_TYPE") // wrong in this case
     @ExternalUse
-    fun append(filename: String) = parent.append(filename = filename)
+    fun append(filename: String) = promise { parent.append(filename = filename) }
 
     @Suppress("NON_EXPORTABLE_TYPE") // wrong in this case
     @ExternalUse
@@ -34,6 +40,61 @@ class LDESTSJS private constructor(
         // looking for a memory based publisher
         (parent.publishers.find { it is MemoryPublisher } as? MemoryPublisher)
             ?.buffer?.store
+    }
+
+    @ExternalUse
+    fun queryAsStore(
+        url: String,
+        constraints: dynamic,
+        start: Double = .0,
+        end: Double = Double.MAX_VALUE,
+    ) = promise {
+        val store = N3Store()
+        parent.query(
+            publisher = SolidPublisher(url),
+            constraints = parseConstraints(constraints),
+            range = start.toLong() until end.toLong()
+        ).collect { store.add(it) }
+        store
+    }
+
+    @Suppress("NON_EXPORTABLE_TYPE") // wrong in this case
+    @ExternalUse
+    fun query(
+        url: String,
+        callback: (N3Triple) -> Unit,
+        constraints: dynamic,
+        start: Double = 0.0,
+        end: Double = Double.MAX_VALUE,
+    ) = promise {
+        parent.query(
+            publisher = SolidPublisher(url),
+            constraints = parseConstraints(constraints),
+            range = start.toLong() until end.toLong()
+        ).collect(callback)
+    }
+
+    /** Helper methods **/
+
+    // dynamic constraints: `predicate`: ["value1", "value2", ...]
+    private fun parseConstraints(constraints: dynamic): Map<NamedNodeTerm, Iterable<NamedNodeTerm>> {
+        val c = mutableMapOf<NamedNodeTerm, Iterable<NamedNodeTerm>>()
+        keys(constraints).forEach { predicate ->
+            c[predicate.asNamedNode()] = (constraints[predicate]!! as Any).let { constraint ->
+                if (constraint is String) {
+                    listOf(constraint.asNamedNode())
+                } else if (constraint is Array<*>) {
+                    // hopefully only containing strings
+                    @Suppress("UNCHECKED_CAST")
+                    (constraint as Array<String>).map { it.asNamedNode() }
+                } else {
+                    // named node term hopefully
+                    @Suppress("UNCHECKED_CAST_TO_EXTERNAL_INTERFACE")
+                    listOf(constraint as NamedNodeTerm)
+                }
+            }
+        }
+        return c
     }
 
     @JsName("Builder")
