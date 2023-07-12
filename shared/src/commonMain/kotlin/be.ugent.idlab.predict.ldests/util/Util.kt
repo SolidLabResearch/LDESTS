@@ -12,6 +12,12 @@ val LETTER_FILTER = Regex("[^a-zA-Z]")
 
 fun String.retainLetters() = LETTER_FILTER.replace(this, "")
 
+val IntRange.length
+    get() = last - first
+
+val LongRange.length
+    get() = last - first
+
 enum class LogLevel {
     LOG, WARN, ERROR
 }

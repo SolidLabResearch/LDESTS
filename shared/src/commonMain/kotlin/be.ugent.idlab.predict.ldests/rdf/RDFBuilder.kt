@@ -9,7 +9,11 @@ class RDFBuilder(
         val path: String
     ) {
         val Element.uri: NamedNodeTerm
-            get() = "${this@Context.path}/${name}".asNamedNode()
+            get() = name.absolutePath
+        val NamedNodeTerm.relativePath: String
+            get() = value.removePrefix("$path/")
+        val String.absolutePath: NamedNodeTerm
+            get() = "${this@Context.path}/$this".asNamedNode()
     }
 
     interface Element {
@@ -23,13 +27,13 @@ class RDFBuilder(
         onTripleAdded(this, predicate, `object`)
     }
 
-    class Subject(private val callback: (predicate: NamedNodeTerm, `object`: Any) -> Unit) {
+    value class Subject(private val callback: (predicate: NamedNodeTerm, `object`: Any) -> Unit) {
 
         infix fun has(predicate: NamedNodeTerm) = SubjectPredicate { callback(predicate, it) }
 
     }
 
-    class SubjectPredicate(private val callback: (`object`: Any) -> Unit) {
+    value class SubjectPredicate(private val callback: (`object`: Any) -> Unit) {
 
         infix fun being(literal: Int) = callback(literal.asLiteral())
 
@@ -47,7 +51,7 @@ class RDFBuilder(
 
     }
 
-    class Blank private constructor(internal val data: Map<NamedNodeTerm, Any /* Term, List or Blank */>) {
+    value class Blank private constructor(internal val data: Map<NamedNodeTerm, Any /* Term, List or Blank */>) {
 
         companion object {
 
@@ -73,7 +77,7 @@ class RDFBuilder(
 
     }
 
-    class List internal constructor(internal val data: kotlin.collections.List<Any>)
+    value class List internal constructor(internal val data: kotlin.collections.List<Any>)
 
     fun blank(block: Blank.Scope.() -> Unit): Blank {
         return Blank.from(block)
@@ -85,3 +89,7 @@ class RDFBuilder(
     fun list(vararg data: Any) = List(data.toList())
 
 }
+
+fun buildTriples(path: String, block: RDFBuilder.() -> Unit) = TripleStore(path, block).asIterable()
+
+fun buildTriples(context: RDFBuilder.Context, block: RDFBuilder.() -> Unit) = TripleStore(context.path, block).asIterable()

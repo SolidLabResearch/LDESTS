@@ -6,6 +6,7 @@ import be.ugent.idlab.predict.ldests.solid.SolidPublisher
 import be.ugent.idlab.predict.ldests.util.log
 import be.ugent.idlab.predict.ldests.util.warn
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -37,16 +38,23 @@ class LDESTS private constructor(
         publishers.forEach { it.subscribe(scope, buffer) }
     }
 
-    fun append(filename: String) {
-        scope.launch {
-            with (stream) {
-                log("Appending data from file `$filename`")
-                resourceLock.withLock {
-                    LocalResource.from(filepath = filename)
-                    // TODO: other resource related work here, such as checks for compat, maybe shape extraction, ...
-                }.insert()
-            }
+    suspend fun append(filename: String) {
+        with (stream) {
+            log("Appending data from file `$filename`")
+            resourceLock.withLock {
+                LocalResource.from(filepath = filename)
+                // TODO: other resource related work here, such as checks for compat, maybe shape extraction, ...
+            }.insert()
         }
+    }
+
+    suspend fun query(
+        publisher: Publisher,
+        constraints: Map<NamedNodeTerm, Iterable<NamedNodeTerm>>,
+        range: LongRange = 0 until Long.MAX_VALUE
+    ): Flow<Triple> {
+        // TODO: require a compatibility check similar to onAttach
+        return stream.query(publisher, constraints, range)
     }
 
     suspend fun flush() {
@@ -76,9 +84,6 @@ class LDESTS private constructor(
 
         private var configuration = Stream.Configuration()
         private var shape: Shape? = null
-        // TODO: replace this with an instruction to initialise the stream's content based on either pre-existing
-        //  data, or a configuration provided by this builder
-        private var data = mutableListOf<TripleProvider>()
         private val queryUris = mutableListOf<NamedNodeTerm>()
         private val publishers = mutableListOf<Publisher>()
 
@@ -165,10 +170,8 @@ class LDESTS private constructor(
             stream.attach(buf)
             LDESTS(
                 stream = stream,
-                // TODO: make this a build option
                 publishers = publishers,
                 buffer = buf
-                // TODO: initial set of data providers
             ).apply { init() }
         } ?: throw Error("Invalid Builder() usage!")
 

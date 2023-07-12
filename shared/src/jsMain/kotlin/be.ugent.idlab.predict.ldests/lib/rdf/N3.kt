@@ -12,6 +12,12 @@ external class N3Triple(
     graph: N3Term? = definedExternally
 ) {
 
+    constructor(
+        subject: N3Term,
+        predicate: N3Term,
+        `object`: N3Term,
+    )
+
     val subject: N3Term
     val predicate: N3Term
     val `object`: N3Term
@@ -77,6 +83,12 @@ external class N3Store {
     fun getSubjects(): Array<N3Term>
     fun getPredicates(): Array<N3Term>
     fun getObjects(): Array<N3Term>
+    fun getQuads(
+        subject: N3Term = definedExternally,
+        predicate: N3Term = definedExternally,
+        `object`: N3Term = definedExternally,
+        graph: N3Term = definedExternally
+    ): Array<N3Triple>
     fun createBlankNode(suggestedName: String = definedExternally): N3BlankNode
 }
 

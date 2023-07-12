@@ -15,17 +15,16 @@ internal fun RDFBuilder.stream(stream: Stream) {
     +stream.uri has LDESTS.shape being shape
     // associating the various rule groups to the different fragments by rule id
     val constraints = "ConstraintSet".asNamedNode()
-    constraintSet(subject = constraints, rules = stream.rules)
+    constraintSet(subject = constraints, rules = stream.rules.values)
     +stream.uri has LDESTS.constraintSet being constraints
 }
 
-internal fun RDFBuilder.constraintSet(subject: NamedNodeTerm, rules: List<Stream.Rules>) {
+internal fun RDFBuilder.constraintSet(subject: NamedNodeTerm, rules: Iterable<Stream.Rules>) {
     +subject has RDF.type being LDESTS.ConstraintSet
     rules.forEach { rule ->
-        val uri = rule.id.asNamedNode()
+        val uri = rule.name.asNamedNode()
         +subject has LDESTS.constraintValue being uri
         +uri has RDF.type being LDESTS.Constraint
-        +uri has LDESTS.constraintId being rule.id.asNamedNode()
         rule.constraints.forEach {
             +uri has LDESTS.constraints being constraint(it)
         }
@@ -43,17 +42,16 @@ internal fun RDFBuilder.constraint(constraint: Map.Entry<NamedNodeTerm, Shape.Co
 
 // the associated sparql query
 internal fun CONSTRAINT_SPARQL_QUERY_FOR_STREAM(stream: NamedNodeTerm) = Query("""
-SELECT ?ruleId ?ruleArg ?ruleVal WHERE {
-    <${stream.value}> a <https://predict.ugent.be/ldests#Node> .
-    <${stream.value}> <https://predict.ugent.be/ldests#constraintSet> ?set .
+SELECT ?rule ?ruleArg ?ruleVal WHERE {
+    <${stream.value}> a <${LDESTS.StreamType.value}> .
+    <${stream.value}> <${LDESTS.constraintSet.value}> ?set .
 
-    ?set a <https://predict.ugent.be/ldests#ConstraintSet> .
-    ?set <https://predict.ugent.be/ldests#constraintValue> ?rule .
-    ?rule a <https://predict.ugent.be/ldests#Constraint> .
-    ?rule <https://predict.ugent.be/ldests#constraintId> ?ruleId .
-    ?rule <https://predict.ugent.be/ldests#constraints> ?constraints .
-    ?constraints <http://www.w3.org/ns/shacl#path> ?ruleArg .
-    ?constraints <https://predict.ugent.be/shape#value> ?ruleVal .
+    ?set a <${LDESTS.ConstraintSet.value}> .
+    ?set <${LDESTS.constraintValue.value}> ?rule .
+    ?rule a <${LDESTS.Constraint.value}> .
+    ?rule <${LDESTS.constraints.value}> ?constraints .
+    ?constraints <${SHACL.path.value}> ?ruleArg .
+    ?constraints <${SHAPETS.constantValue.value}> ?ruleVal .
 }""")
 
 internal suspend fun InputStream<Binding>.consumeAsRuleData(): Map<String, Map<NamedNodeTerm, List<Term>>> {
@@ -61,7 +59,7 @@ internal suspend fun InputStream<Binding>.consumeAsRuleData(): Map<String, Map<N
     val result = mutableMapOf<String, MutableMap<NamedNodeTerm, MutableList<Term>>>()
     consume { binding ->
         result
-            .getOrPut(binding["ruleId"]!!.value) { mutableMapOf() }
+            .getOrPut(binding["rule"]!!.value) { mutableMapOf() }
             .getOrPut(binding["ruleArg"]!! as NamedNodeTerm) { mutableListOf() }
             .add(binding["ruleVal"]!!)
     }.join()
@@ -70,17 +68,36 @@ internal suspend fun InputStream<Binding>.consumeAsRuleData(): Map<String, Map<N
 
 internal fun RDFBuilder.fragmentRelation(fragment: Stream.Fragment) = blank {
     +RDF.type being TREE.GreaterThanOrEqualToRelation // FIXME other relations? custom relation?
-    +TREE.value being fragment.start
+    +TREE.value being fragment.properties.start
     +TREE.path being fragment.shape.sampleIdentifier.predicate
     +TREE.node being fragment.uri
     // should exist here as well due to the stream definition
-    +LDESTS.constraints being fragment.rules.id.asNamedNode()
+    +LDESTS.constraints being fragment.properties.rules.uri
 }
+
+internal fun FRAGMENT_RELATION_SPARQL_QUERY(stream: NamedNodeTerm) = Query("""
+SELECT ?constraints ?name ?start WHERE {
+    <${stream.value}> a <${LDESTS.StreamType.value}> .
+    <${stream.value}> <${TREE.relation.value}> ?fragment .
+    ?fragment
+        <${LDESTS.constraints.value}> ?constraints ;
+        <${TREE.node.value}> ?name ;
+        <${TREE.value.value}> ?start .
+}
+""")
 
 internal fun RDFBuilder.fragment(fragment: Stream.Fragment) {
     +fragment.uri has RDF.type being LDESTS.FragmentType
     +fragment.uri has LDESTS.contents being fragment.data.asLiteral()
 }
+
+internal fun FRAGMENT_CONTENTS_SPARQL_QUERY(fragment: NamedNodeTerm) = Query("""
+SELECT ?data WHERE {
+    <${fragment.value}>
+        a <${LDESTS.FragmentType.value}> ;
+        <${LDESTS.contents.value}> ?data
+}
+""")
 
 fun RDFBuilder.shape(subject: NamedNodeTerm, shape: Shape) {
     +subject has RDF.type being SHACL.Shape
@@ -115,6 +132,9 @@ internal fun RDFBuilder.property(property: Pair<NamedNodeTerm, Shape.ConstantPro
     +SHACL.path being property.first
     +SHACL.minCount being 1
     +SHACL.maxCount being 1
+    property.second.index?.let {
+        +LDESTS.order being it
+    }
     // FIXME: support for non-IRI constants?
     +SHACL.nodeKind being SHACL.IRI
     // FIXME: what to do with a single value? same or different path?
@@ -130,8 +150,7 @@ internal fun RDFBuilder.property(property: Pair<NamedNodeTerm, Shape.VariablePro
     +SHACL.maxCount being property.second.count
     +SHACL.nodeKind being SHACL.Literal
     +SHACL.dataType being property.second.type
-    +SHAPETS.startIndex being 0 // FIXME configure this in the property, set when adding the property to the shape
-    +SHAPETS.endIndex being 0 + property.second.count // FIXME: see note above
+    +LDESTS.order being property.second.index!!
 }
 
 // the associated sparql query
