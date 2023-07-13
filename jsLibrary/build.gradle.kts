@@ -19,16 +19,17 @@ plugins {
 afterEvaluate {
     // task to copy the resulting generated code to the example app's modules
     val updateExampleApp = tasks.create("updateExampleApp", Copy::class.java) {
-        from("../build/js/packages")
-        into("../exampleJsApp/node_modules")
+        doFirst { mkdir("../exampleJsApp/node_modules/ldests") }
+        from("../build/js/packages/ldests")
+        into("../exampleJsApp/node_modules/ldests")
     }
     // task to update the exampleJsApp with this base code
-    val updateExampleAppBaseTask = tasks.create("updateExampleAppBaseTask", Copy::class.java) {
-        doFirst { mkdir("../exampleJsApp/node_modules/base") }
+    val updateExampleAppCompat = tasks.create("updateExampleAppCompat", Copy::class.java) {
+        doFirst { mkdir("../exampleJsApp/node_modules/ldests/node_modules/ldests_compat") }
         from("../shared/src/jsMain/js")
-        into("../exampleJsApp/node_modules/base")
+        into("../exampleJsApp/node_modules/ldests/node_modules/ldests_compat")
     }
-    updateExampleApp.finalizedBy(updateExampleAppBaseTask)
+    updateExampleApp.finalizedBy(updateExampleAppCompat)
     // task to test the library by running the `exampleJsApp`
     val testLibraryTask = tasks.create("testLibraryTask", Exec::class.java) {
         workingDir = File("..")

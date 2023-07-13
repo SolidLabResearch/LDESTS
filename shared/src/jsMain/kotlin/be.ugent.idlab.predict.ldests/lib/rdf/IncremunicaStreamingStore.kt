@@ -1,4 +1,4 @@
-@file:JsModule("base")
+@file:JsModule("ldests_compat")
 
 package be.ugent.idlab.predict.ldests.lib.rdf
 
