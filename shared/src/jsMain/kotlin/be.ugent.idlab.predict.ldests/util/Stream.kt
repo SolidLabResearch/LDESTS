@@ -29,6 +29,16 @@ actual suspend fun NodeStream.join() = suspendCancellableCoroutine { cont: Cance
     )
 }
 
+actual fun <T> T.streamify(): ReadableNodeStream<T> =
+    object: ReadableNodeStream<T>(
+        options = dyn("objectMode" to true)
+    ) {
+        override fun read() {
+            push(this@streamify)
+            destroy()
+        }
+    }
+
 actual fun fromFile(filepath: String): InputStream<String> {
     return createReadFileStream(filepath)
 }

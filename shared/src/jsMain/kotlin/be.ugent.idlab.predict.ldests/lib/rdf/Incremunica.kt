@@ -1,4 +1,4 @@
-@file:JsModule("@comunica/query-sparql-incremental")
+@file:JsModule("base")
 
 package be.ugent.idlab.predict.ldests.lib.rdf
 

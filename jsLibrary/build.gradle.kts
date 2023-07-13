@@ -25,22 +25,10 @@ afterEvaluate {
     // task to update the exampleJsApp with this base code
     val updateExampleAppBaseTask = tasks.create("updateExampleAppBaseTask", Copy::class.java) {
         doFirst { mkdir("../exampleJsApp/node_modules/base") }
-        from("../shared/src/jsMain/js/src")
+        from("../shared/src/jsMain/js")
         into("../exampleJsApp/node_modules/base")
     }
     updateExampleApp.finalizedBy(updateExampleAppBaseTask)
-    // add the extra non-npm dependencies to the library
-    val addIncremunicaEngineToTest = tasks.create("addIncremunicaEngineToTest", Copy::class.java) {
-        doFirst { mkdir("../exampleJsApp/node_modules/@comunica/query-sparql-incremental") }
-        from("../shared/src/jsMain/build/incremunica/engines/query-sparql-incremental")
-        into("../exampleJsApp/node_modules/@comunica/query-sparql-incremental")
-    }
-    val addIncremunicaStreamToTest = tasks.create("addIncremunicaStreamToTest", Copy::class.java) {
-        doFirst { mkdir("../exampleJsApp/node_modules/@comunica/incremental-rdf-streaming-store") }
-        from("../shared/src/jsMain/build/incremunica/packages/incremental-rdf-streaming-store")
-        into("../exampleJsApp/node_modules/@comunica/incremental-rdf-streaming-store")
-    }
-    updateExampleApp.finalizedBy(addIncremunicaEngineToTest, addIncremunicaStreamToTest)
     // task to test the library by running the `exampleJsApp`
     val testLibraryTask = tasks.create("testLibraryTask", Exec::class.java) {
         workingDir = File("..")

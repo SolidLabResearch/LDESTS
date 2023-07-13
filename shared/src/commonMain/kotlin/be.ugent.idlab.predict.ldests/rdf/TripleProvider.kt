@@ -39,4 +39,6 @@ expect class StreamingResource(): TripleProvider {
 
     fun add(stream: InputStream<Triple>)
 
+    fun stop()
+
 }
