@@ -20,6 +20,9 @@ open external class ReadableNodeStream<T>(
 
     open fun push(data: T?)
 
+    @JsName("_read")
+    open fun read()
+
     override fun on(event: String, callback: (data: dynamic) -> Unit): ReadableNodeStream<T>
 
     override fun destroy(error: Error?)

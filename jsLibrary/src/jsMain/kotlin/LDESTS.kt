@@ -1,6 +1,5 @@
 
 import be.ugent.idlab.predict.ldests.core.LDESTS
-import be.ugent.idlab.predict.ldests.core.MemoryPublisher
 import be.ugent.idlab.predict.ldests.core.Stream
 import be.ugent.idlab.predict.ldests.lib.rdf.N3Store
 import be.ugent.idlab.predict.ldests.lib.rdf.N3Triple
@@ -34,15 +33,6 @@ class LDESTSJS private constructor(
     fun close() = promise { parent.close() }
 
     @ExternalUse
-    fun toStore() = promise {
-        // flushing first, so the store is usable
-        parent.flush()
-        // looking for a memory based publisher
-        (parent.publishers.find { it is MemoryPublisher } as? MemoryPublisher)
-            ?.buffer?.store
-    }
-
-    @ExternalUse
     fun queryAsStore(
         url: String,
         constraints: dynamic,
@@ -72,6 +62,11 @@ class LDESTSJS private constructor(
             constraints = parseConstraints(constraints),
             range = start.toLong() until end.toLong()
         ).collect(callback)
+    }
+
+    @ExternalUse
+    fun insert(data: N3Triple) {
+        parent.insert(data)
     }
 
     /** Helper methods **/

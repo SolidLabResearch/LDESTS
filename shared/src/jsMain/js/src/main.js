@@ -1,3 +1,6 @@
+const _engine = require("../lib/incremunica/engines/query-sparql-incremental/lib/QueryEngine.js");
+const _store = require("../lib/incremunica/packages/incremental-rdf-streaming-store/lib/StreamingStore.js");
+
 // function used to iterate over an AsyncIterator
 async function * asyncIteratorToGenerator(source) {
    source.read();
@@ -14,4 +17,6 @@ async function * asyncIteratorToGenerator(source) {
    }
 }
 
-exports.asyncIteratorToGenerator = asyncIteratorToGenerator
+exports.asyncIteratorToGenerator = asyncIteratorToGenerator;
+exports.QueryEngine = _engine.QueryEngine;
+exports.StreamingStore = _store.StreamingStore;

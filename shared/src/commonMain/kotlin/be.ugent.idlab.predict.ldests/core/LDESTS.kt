@@ -4,6 +4,7 @@ import be.ugent.idlab.predict.ldests.rdf.*
 import be.ugent.idlab.predict.ldests.rdf.ontology.Ontology
 import be.ugent.idlab.predict.ldests.solid.SolidPublisher
 import be.ugent.idlab.predict.ldests.util.log
+import be.ugent.idlab.predict.ldests.util.streamify
 import be.ugent.idlab.predict.ldests.util.warn
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
@@ -33,9 +34,16 @@ class LDESTS private constructor(
     private val scope = CoroutineScope(Dispatchers.Unconfined + job)
     // lock responsible for all resources that aren't used by the stream (yet)
     private val resourceLock = Mutex()
+    // resource used for adding triples manually
+    private val input = StreamingResource()
 
     suspend fun init() {
         publishers.forEach { it.subscribe(scope, buffer) }
+        scope.launch {
+            // starting this in a separate job, as the insert blocks until finished, but input of type StreamingResource
+            //  never finishes on its own, and this would then never return
+            with (stream) { input.insert() }
+        }
     }
 
     suspend fun append(filename: String) {
@@ -46,6 +54,10 @@ class LDESTS private constructor(
                 // TODO: other resource related work here, such as checks for compat, maybe shape extraction, ...
             }.insert()
         }
+    }
+
+    fun insert(data: Triple) {
+        input.add(data.streamify())
     }
 
     suspend fun query(
@@ -60,6 +72,7 @@ class LDESTS private constructor(
     suspend fun flush() {
         warn("Flush: releasing assigned resources.")
         resourceLock.lock()
+        input.stop()
         warn("Flush: waiting for the stream to finish.")
         stream.flush()
         // NOTE: it is not possible to call `job.join()` here when testing, it probably deadlocks the code due

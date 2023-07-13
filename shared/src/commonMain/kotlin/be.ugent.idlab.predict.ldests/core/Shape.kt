@@ -98,6 +98,8 @@ class Shape private constructor(
 
         }
 
+        abstract fun encode(data: Term): String
+
         abstract fun decode(data: List<String>): List<Term>
 
     }
@@ -105,6 +107,15 @@ class Shape private constructor(
     // TODO: split the two constant cases up
     // TODO: make the non-binding a different property type
     class ConstantProperty: Property {
+        /**
+         * TODO: migrate back to a query which looks like ([] already included)
+         * ```
+         * [?subject <predicate>] ?cv{id} .
+         * BIND(
+         *      IF(?cv{id} = value[0], 0, IF(?cv{id} = value[1], 1, ..., -1)) AS ?c{id}
+         * )
+         * ```
+         */
 
         /* NamedNodeTerm, BlankNodeTerm and LiteralTerm possible, but Literal's shouldn't be used */
         internal val values: List<Term>
@@ -121,22 +132,7 @@ class Shape private constructor(
             require(values.size > 1)
             this.values = values
             this.id = id
-            // creating the query
-            var filter = "BIND("
-            this.values.forEachIndexed { index, term ->
-                val statement = "?cv${id} = <${term.value}>, $index"
-                filter = "${filter}IF($statement, "
-            }
-            /**
-             * The resulting query looks like ([] already included)
-             * ```
-             * [?subject <predicate>] ?cv{id} .
-             * BIND(
-             *      IF(?cv{id} = value[0], 0, IF(?cv{id} = value[1], 1, ..., -1)) AS ?c{id}
-             * )
-             * ```
-             */
-            this.query = "?cv${id} .\n$filter -1${")".repeat(this.values.size)} AS ?$identifier)"
+            this.query = "?c${id}"
         }
 
         constructor(value: Term): super(
@@ -165,6 +161,10 @@ class Shape private constructor(
             var result = values.hashCode()
             result = 31 * result + (id ?: 0)
             return result
+        }
+
+        override fun encode(data: Term): String {
+            return values.indexOf(data).toString()
         }
 
         override fun decode(data: List<String>): List<Term> {
@@ -201,6 +201,11 @@ class Shape private constructor(
             return result
         }
 
+        override fun encode(data: Term): String {
+            // TODO: support for other datatypes, such as dates, and process the value as such
+            return data.value
+        }
+
         override fun decode(data: List<String>): List<Term> {
             // TODO: use the type to know what exact conversion needs to take place
             return data.map { it.toFloat().asLiteral() }
@@ -215,7 +220,16 @@ class Shape private constructor(
             build: BuildScope.() -> Shape
         ): Shape = BuildScope(typeIdentifier = ClassProperty(value = type)).build()
 
-        fun Binding.id() = LocalDateTime.parse(get(BINDING_IDENTIFIER)!!.value).toEpochMilli()
+        fun Binding.id(): Long {
+            val value = get(BINDING_IDENTIFIER)!!.value
+            return try {
+                // checking for either timezone aware strings...
+                Instant.parse(value).toEpochMilliseconds()
+            } catch (e: Throwable) {
+                // or otherwise falling back to local date time strings
+                LocalDateTime.parse(value).toEpochMilli()
+            }
+        }
 
         private fun LocalDateTime.toEpochMilli(): Long {
             return this.toInstant(TimeZone.of("UTC")).toEpochMilliseconds()
@@ -293,7 +307,7 @@ class Shape private constructor(
     }
 
     fun encode(result: Binding): String {
-        return "${result.id()}:" + variables.joinToString(";") { result[it.second.identifier!!]!!.value } + ';'
+        return "${result.id()}:" + variables.joinToString(";") { it.second.encode(result[it.second.identifier!!]!!) } + ';'
     }
 
     fun decode(
@@ -325,7 +339,7 @@ class Shape private constructor(
             }
             if (!relevant) return
             // processing the data & sending it through
-            data.decode(publisher.context, constraints, j++).forEach { emit(it) }
+            data.decode(publisher.context, j++).forEach { emit(it) }
         }
         while (iter.hasNext()) {
             when (val c = iter.next()) {
@@ -362,7 +376,6 @@ class Shape private constructor(
      */
     private fun List<String>.decode(
         context: RDFBuilder.Context,
-        constraints: Map<NamedNodeTerm, Iterable<NamedNodeTerm>>,
         id: Int
     ) = buildTriples(context) {
         val subject = with (context) { "Sample_$id".absolutePath }
