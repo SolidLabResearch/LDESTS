@@ -221,12 +221,13 @@ class Shape private constructor(
         ): Shape = BuildScope(typeIdentifier = ClassProperty(value = type)).build()
 
         fun Binding.id(): Long {
+            val value = get(BINDING_IDENTIFIER)!!.value
             return try {
                 // checking for either timezone aware strings...
-                Instant.parse(get(BINDING_IDENTIFIER)!!.value).toEpochMilliseconds()
+                Instant.parse(value).toEpochMilliseconds()
             } catch (e: Throwable) {
                 // or otherwise falling back to local date time strings
-                LocalDateTime.parse(get(BINDING_IDENTIFIER)!!.value).toEpochMilli()
+                LocalDateTime.parse(value).toEpochMilli()
             }
         }
 
@@ -338,7 +339,7 @@ class Shape private constructor(
             }
             if (!relevant) return
             // processing the data & sending it through
-            data.decode(publisher.context, constraints, j++).forEach { emit(it) }
+            data.decode(publisher.context, j++).forEach { emit(it) }
         }
         while (iter.hasNext()) {
             when (val c = iter.next()) {
@@ -375,7 +376,6 @@ class Shape private constructor(
      */
     private fun List<String>.decode(
         context: RDFBuilder.Context,
-        constraints: Map<NamedNodeTerm, Iterable<NamedNodeTerm>>,
         id: Int
     ) = buildTriples(context) {
         val subject = with (context) { "Sample_$id".absolutePath }
