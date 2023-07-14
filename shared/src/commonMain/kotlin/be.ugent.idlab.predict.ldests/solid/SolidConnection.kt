@@ -1,8 +1,8 @@
 package be.ugent.idlab.predict.ldests.solid
 
 import be.ugent.idlab.predict.ldests.rdf.NamedNodeTerm
-import be.ugent.idlab.predict.ldests.rdf.RemoteResource
 import be.ugent.idlab.predict.ldests.rdf.RDFBuilder
+import be.ugent.idlab.predict.ldests.rdf.RemoteResource
 import be.ugent.idlab.predict.ldests.rdf.Turtle
 import be.ugent.idlab.predict.ldests.rdf.ontology.Ontology
 import be.ugent.idlab.predict.ldests.util.SubmitRequestType
@@ -18,6 +18,9 @@ class SolidConnection(
 
     val root = Folder(if (url.last() != '/') "$url/" else url)
 
+    // all to-be-published requests
+    private val requests = mutableListOf<suspend () -> Unit>()
+
     open inner class Resource(
         val url: String
     ) {
@@ -26,18 +29,20 @@ class SolidConnection(
             return RemoteResource.from(url = url)
         }
 
-        open suspend fun write(block: RDFBuilder.() -> Unit): Int {
-            // `PUT`ting the resource directly
-            return submit(
-                type = SubmitRequestType.PUT,
-                url = url,
-                headers = listOf("Content-type" to "text/turtle"),
-                body = Turtle(
-                    context = context,
-                    prefixes = Ontology.PREFIXES,
-                    block = block
+        open fun write(block: RDFBuilder.() -> Unit) {
+            requests.add {
+                submit(
+                    // `PUT`ting the resource directly
+                    type = SubmitRequestType.PUT,
+                    url = url,
+                    headers = listOf("Content-type" to "text/turtle"),
+                    body = Turtle(
+                        context = context,
+                        prefixes = Ontology.PREFIXES,
+                        block = block
+                    )
                 )
-            )
+            }
         }
 
     }
@@ -47,22 +52,24 @@ class SolidConnection(
         url: String
     ): Resource(url) {
 
-        override suspend fun write(block: RDFBuilder.() -> Unit): Int {
-            // creating the folder
-            submit(
-                type = SubmitRequestType.PUT,
-                url = url,
-                headers = listOf(),
-                body = ""
-            )
-            // setting the .meta file for the additional data
-            return submit(
-                type = SubmitRequestType.PATCH,
-                url = "$url.meta",
-                headers = listOf("Content-type" to "application/sparql-update"),
-                // no prefixes used here, as the `INSERT DATA {}` construct doesn't like the `@prefix` syntax
-                body = "INSERT DATA { ${Turtle(context = context, block = block)} }"
-            )
+        override fun write(block: RDFBuilder.() -> Unit) {
+            requests.add {
+                // creating the folder
+                submit(
+                    type = SubmitRequestType.PUT,
+                    url = url,
+                    headers = listOf(),
+                    body = ""
+                )
+                // setting the .meta file for the additional data
+                submit(
+                    type = SubmitRequestType.PATCH,
+                    url = "$url.meta",
+                    headers = listOf("Content-type" to "application/sparql-update"),
+                    // no prefixes used here, as the `INSERT DATA {}` construct doesn't like the `@prefix` syntax
+                    body = "INSERT DATA { ${Turtle(context = context, block = block)} }"
+                )
+            }
         }
 
         fun folder(uri: NamedNodeTerm): Folder {
@@ -92,6 +99,14 @@ class SolidConnection(
             Folder(url = url)
         } else {
             Resource(url = url)
+        }
+    }
+
+    suspend fun flush() {
+        val it = requests.iterator()
+        while (it.hasNext()) {
+            it.next().invoke()
+            it.remove()
         }
     }
 

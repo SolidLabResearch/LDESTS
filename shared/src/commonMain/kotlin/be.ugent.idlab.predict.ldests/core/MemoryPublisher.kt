@@ -17,7 +17,7 @@ class MemoryPublisher: Publisher() {
         return null
     }
 
-    override suspend fun publish(path: String, data: RDFBuilder.() -> Unit) {
+    override fun publish(path: String, data: RDFBuilder.() -> Unit) {
         buffer.insert(context = RDFBuilder.Context(path = path), block = data)
     }
 

@@ -74,6 +74,12 @@ class LDESTSJS private constructor(
         parent.insert(data.asIterable())
     }
 
+    @Suppress("NON_EXPORTABLE_TYPE") // wrong in this case
+    @ExternalUse
+    fun insertStore(data: Array<N3Triple>) = promise {
+        parent.add(data.asIterable())
+    }
+
     /** Helper methods **/
 
     // dynamic constraints: `predicate`: ["value1", "value2", ...]

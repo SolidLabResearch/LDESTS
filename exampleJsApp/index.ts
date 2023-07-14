@@ -79,16 +79,16 @@ async function main() {
         .attachSolidPublisher("http://localhost:3000")
 //         .attachDebugPublisher()
         .create();
-    await stream.append("../DAHCC-Data/dataset_participant_sample_accel_data.nt");
-    // for await (const triple of generateRandomData(10)) {
-    //     stream.insert(triple);
-    // }
+    // await stream.append("../DAHCC-Data/dataset_participant_sample_accel_data.nt");
+    for await (const triple of generateRandomData(10)) {
+        stream.insert(triple);
+    }
     await stream.flush();
     const triples = new Array<Quad>();
     for await (const triple of generateRandomData(10)) {
         triples.push(triple)
     }
-    stream.insertBulk(triples);
+    await stream.insertStore(triples);
     await stream.flush();
     await stream.query(
         "http://localhost:3000",

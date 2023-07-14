@@ -11,7 +11,7 @@ class PublishBuffer(
 
     private val publishers = mutableSetOf<Publisher>()
 
-    suspend fun emit(path: String, data: RDFBuilder.() -> Unit) {
+    fun emit(path: String, data: RDFBuilder.() -> Unit) {
         publishers.forEach { it.publish(path, data) }
     }
 
@@ -51,6 +51,10 @@ class PublishBuffer(
 
     fun onAttached(publishable: Publishable) {
         srcs.add(publishable)
+    }
+
+    suspend fun flush() {
+        publishers.forEach { it.flush() }
     }
 
 }

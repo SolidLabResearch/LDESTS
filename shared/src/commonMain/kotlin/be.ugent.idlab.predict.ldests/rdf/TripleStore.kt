@@ -24,3 +24,4 @@ expect class TripleStore() {
 operator fun TripleStore.Companion.invoke(path: String = "", block: RDFBuilder.() -> Unit) =
     TripleStore().apply { insert(context = RDFBuilder.Context(path = path), block) }
 
+fun Iterable<Triple>.toStore() = TripleStore().apply { this@toStore.forEach { add(it) } }

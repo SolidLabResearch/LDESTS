@@ -19,7 +19,14 @@ abstract class Publisher {
      * Publishes the data retrieved by executing the provided lambda.
      * Expected path is the complete path after host, like `stream/` or `stream/fragment`
      */
-    abstract suspend fun publish(path: String, data: RDFBuilder.() -> Unit)
+    abstract fun publish(path: String, data: RDFBuilder.() -> Unit)
+
+    /**
+     * Publishes all data currently in cache, if any and if possible
+     */
+    open suspend fun flush() {
+        /* nothing to do by default */
+    }
 
     /**
      * The buffers this stream is currently subscribed to
