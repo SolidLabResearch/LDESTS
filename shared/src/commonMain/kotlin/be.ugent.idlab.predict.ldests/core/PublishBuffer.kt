@@ -3,39 +3,33 @@ package be.ugent.idlab.predict.ldests.core
 import be.ugent.idlab.predict.ldests.rdf.RDFBuilder
 import be.ugent.idlab.predict.ldests.util.error
 import be.ugent.idlab.predict.ldests.util.log
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.launch
 
-class PublishBuffer {
+class PublishBuffer(
+    // the registered sources, used when attaching a publisher
+    private val srcs: MutableList<Publishable> = mutableListOf()
+) {
 
-    // internal flow used to allow attached publishers to interact with the data
-    private val flow = MutableSharedFlow<Pair<String, RDFBuilder.() -> Unit>>()
-    private val srcs = mutableListOf<Publishable>()
+    private val publishers = mutableSetOf<Publisher>()
 
     suspend fun emit(path: String, data: RDFBuilder.() -> Unit) {
-        flow.emit(path to data)
+        publishers.forEach { it.publish(path, data) }
     }
 
     /**
-     * Subscribes to the internal flow. Blocks as long as it is subscribed, so stopping a subscription is as simple
-     *  as cancelling the job this subscription is put in
+     * Checks for compatibility between the publisher & publishing sources. Returns `true` upon successful
      */
-    internal suspend fun Publisher.subscribe(
-        scope: CoroutineScope,
-        action: suspend (path: String, item: RDFBuilder.() -> Unit) -> Unit
-    ): Job? {
+    internal suspend fun Publisher.attach(): Boolean {
         log("Checking ${srcs.size} source(s) for ${this::class.simpleName}")
         run {
             // temporary scope so the collection can go out of scope after init
             val new = mutableListOf<Publishable>()
             srcs.forEach {
-                when (it.onPublisherAttached(this@subscribe)) {
+                when (it.onPublisherAttached(this@attach)) {
                     Publishable.PublisherAttachResult.SUCCESS -> { /* nothing to do */ }
                     Publishable.PublisherAttachResult.FAILURE -> {
                         error("`${this::class.simpleName}` could not subscribe! Failure caused by publishable `${it::class.simpleName}` instance.")
-                        return null
+                        // failure, not attaching
+                        return false
                     }
                     Publishable.PublisherAttachResult.NEW -> new.add(it)
                 }
@@ -46,9 +40,13 @@ class PublishBuffer {
                 publishable.onCreate(publisher = this)
             }
         }
-        return scope.launch {
-            flow.collect { (path, block) -> action(path) { block() } }
-        }
+        // success, so adding it
+        publishers.add(this)
+        return true
+    }
+
+    fun Publisher.detach() {
+        publishers.remove(this)
     }
 
     fun onAttached(publishable: Publishable) {

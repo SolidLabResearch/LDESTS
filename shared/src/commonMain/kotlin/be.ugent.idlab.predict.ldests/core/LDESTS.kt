@@ -156,14 +156,13 @@ class LDESTS private constructor(
                         return null
                     }
 
-                    override suspend fun publish(path: String, data: RDFBuilder.() -> Unit): Boolean {
+                    override suspend fun publish(path: String, data: RDFBuilder.() -> Unit) {
                         val str = Turtle(
                             context = context,
                             prefixes = Ontology.PREFIXES,
                             block = data
                         )
                         log("In debugger for `$path`:\n$str")
-                        return true
                     }
 
                 }
