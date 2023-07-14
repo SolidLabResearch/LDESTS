@@ -2,10 +2,6 @@ package be.ugent.idlab.predict.ldests.core
 
 import be.ugent.idlab.predict.ldests.rdf.RDFBuilder
 import be.ugent.idlab.predict.ldests.rdf.TripleProvider
-import kotlinx.coroutines.*
-import kotlin.collections.component1
-import kotlin.collections.component2
-import kotlin.collections.set
 
 abstract class Publisher {
 
@@ -20,24 +16,30 @@ abstract class Publisher {
     abstract suspend fun fetch(path: String): TripleProvider?
 
     /**
-     * Publishes the data retrieved by executing the provided lambda. Returns `true` upon success (so memory can be
-     *  freed again)
-     * Expected path is the complete path after host, like `stream/fragment/` or `stream/fragment/resource`
+     * Publishes the data retrieved by executing the provided lambda.
+     * Expected path is the complete path after host, like `stream/` or `stream/fragment`
      */
-    abstract suspend fun publish(path: String, data: RDFBuilder.() -> Unit): Boolean
+    abstract fun publish(path: String, data: RDFBuilder.() -> Unit)
 
     /**
-     * The publishable items this publisher is subscribed to
+     * Publishes all data currently in cache, if any and if possible
      */
-    private val jobs = mutableMapOf<PublishBuffer, Job>()
+    open suspend fun flush() {
+        /* nothing to do by default */
+    }
+
+    /**
+     * The buffers this stream is currently subscribed to
+     */
+    private val bufs = mutableSetOf<PublishBuffer>()
 
     /**
      * Starts publishing everything the buffer receives. Keeps listening until `unsubscribe` with
      *  the same buffer is called or the program terminates
      */
-    suspend fun subscribe(scope: CoroutineScope, buffer: PublishBuffer) = with(buffer) {
-        subscribe(scope) { path, block -> publish(path, block) }?.let {
-            jobs[buffer] = it
+    suspend fun subscribe(buffer: PublishBuffer) = with(buffer) {
+        if (attach()) {
+            bufs.add(this)
         }
     }
 
@@ -45,20 +47,14 @@ abstract class Publisher {
      * Starts publishing everything created by the publishable item. Keeps listening until `unsubscribe` with
      *  the same publisher is called
      */
-    suspend fun unsubscribe(item: PublishBuffer) {
-        jobs[item]?.cancelAndJoin()
-        jobs.remove(item)
+    fun unsubscribe(buffer: PublishBuffer) = with(buffer) {
+        detach()
+        bufs.remove(this)
     }
 
-    suspend fun close() {
-        coroutineScope {
-            jobs.map { (item, job) ->
-                async {
-                    job.cancelAndJoin()
-                    jobs.remove(item)
-                }
-            }.awaitAll()
-        }
+    open fun close() {
+        val it = bufs.iterator()
+        while (it.hasNext()) { unsubscribe(it.next()) }
     }
 
 }

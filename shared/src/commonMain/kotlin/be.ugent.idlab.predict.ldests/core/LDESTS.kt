@@ -39,12 +39,14 @@ class LDESTS private constructor(
     private var input = StreamingResource()
 
     suspend fun init() {
-        publishers.forEach { it.subscribe(scope, buffer) }
+        publishers.forEach { it.subscribe(buffer) }
         inputJob = scope.launch {
             // starting this in a separate job, as the insert blocks until finished, but input of type StreamingResource
             //  never finishes on its own, and this would then never return
             with (stream) { input.insert() }
         }
+        warn("Flushing publishers for the first time")
+        buffer.flush()
     }
 
     suspend fun append(filename: String) {
@@ -57,12 +59,25 @@ class LDESTS private constructor(
         }
     }
 
+    /**
+     * Inserts data as a streaming input source
+     */
     fun insert(data: Triple) {
         input.add(data.streamify())
     }
 
+    /**
+     * Inserts multiple data entries as a streaming input source
+     */
     fun insert(data: Iterable<Triple>) {
         input.add(data.streamify())
+    }
+
+    /**
+     * Inserts an entire chunk of data in one single go
+     */
+    suspend fun add(data: Iterable<Triple>) = with (stream) {
+        LocalResource.wrap(data.toStore()).insert()
     }
 
     suspend fun query(
@@ -81,6 +96,8 @@ class LDESTS private constructor(
         inputJob.join()
         warn("Flush: waiting for the stream to finish.")
         stream.flush()
+        warn("Flushing all attached publishers")
+        buffer.flush()
         // NOTE: it is not possible to call `job.join()` here when testing, it probably deadlocks the code due
         //  to the single threaded nature of JS (`flush` waiting on `join`, waiting in `globalscope` which waits on `flush` ?)
         warn("Flush: completed!")
@@ -156,14 +173,13 @@ class LDESTS private constructor(
                         return null
                     }
 
-                    override suspend fun publish(path: String, data: RDFBuilder.() -> Unit): Boolean {
+                    override fun publish(path: String, data: RDFBuilder.() -> Unit) {
                         val str = Turtle(
                             context = context,
                             prefixes = Ontology.PREFIXES,
                             block = data
                         )
                         log("In debugger for `$path`:\n$str")
-                        return true
                     }
 
                 }

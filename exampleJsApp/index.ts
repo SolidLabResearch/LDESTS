@@ -88,7 +88,7 @@ async function main() {
     for await (const triple of generateRandomData(10)) {
         triples.push(triple)
     }
-    stream.insertBulk(triples);
+    await stream.insertStore(triples);
     await stream.flush();
     await stream.query(
         "http://localhost:3000",

@@ -2,9 +2,6 @@ package be.ugent.idlab.predict.ldests.rdf
 
 import be.ugent.idlab.predict.ldests.lib.rdf.N3Writer
 import be.ugent.idlab.predict.ldests.util.dyn
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
-import kotlin.coroutines.suspendCoroutine
 
 actual class Turtle private constructor(prefixes: Map<String, String>){
 
@@ -14,19 +11,21 @@ actual class Turtle private constructor(prefixes: Map<String, String>){
         N3Writer(dyn("prefixes" to p))
     }
 
-    internal actual suspend fun finish(): String = suspendCoroutine {
+    internal actual fun finish(): String {
+        var turtle: String = ""
         writer.finish { error, result ->
             if (error != null) {
-                it.resumeWithException(error)
+                throw error
             } else {
-                it.resume(result)
+                turtle = result
             }
         }
+        return turtle
     }
 
     actual companion object {
 
-        actual suspend operator fun invoke(
+        actual operator fun invoke(
             context: RDFBuilder.Context,
             prefixes: Map<String, String>,
             block: RDFBuilder.() -> Unit

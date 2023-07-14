@@ -28,13 +28,6 @@ class Stream private constructor(
 
     internal val rules = rules.associateBy { it.name }
 
-    // "global" lock, active while data is being added/flushed/...
-    private val globalLock = Mutex()
-    // "inner" lock, active while individual fragments are being updated
-    private val innerLock = Mutex()
-    // lock flow: data source added | data being read & processed | new fragment(s) created | done
-    //  global         L            |             L               |            L            |  U
-    //  inner          U            |           U & L             |          U & L          |  U
     private val fragments: MutableMap<Rules, MutableList<Fragment>> = mutableMapOf()
 
     override suspend fun onPublisherAttached(publisher: Publisher): PublisherAttachResult {
@@ -71,8 +64,8 @@ class Stream private constructor(
         stream(this@Stream)
     }
 
-    suspend fun flush() = globalLock.withLock {
-        log("Lock in `flush` acquired.")
+    fun flush() {
+        log("Lock in `flush` acquired. Flushing ${fragments.values.size} fragment(s)...")
         fragments.values.forEach { fragments ->
             fragments.forEach { fragment ->
                 fragment.flush()
@@ -85,25 +78,22 @@ class Stream private constructor(
      *  new stream as it consumes directly and blocks (suspends) until finished.
      */
     internal suspend fun TripleProvider.insert() {
-        // `=` syntax would return a list of completed async calls, which would be `Unit`
-        globalLock.withLock {
-            // src: https://stackoverflow.com/a/55895056
-            coroutineScope {
-                // iterating over all existing rules, using their queries to obtain data, and using the data's timestamp
-                //  to get the appropriate fragment (creating one if necessary)
-                rules.values.map { rules ->
-                    async {
-                        query(rules.shape.query)!!
-                            .consume { binding ->
-                                this@coroutineScope.launch {
-                                    findOrCreate(rules = rules, data = binding).forEach {
-                                        it.append(binding)
-                                    }
+        // src: https://stackoverflow.com/a/55895056
+        coroutineScope {
+            // iterating over all existing rules, using their queries to obtain data, and using the data's timestamp
+            //  to get the appropriate fragment (creating one if necessary)
+            rules.values.map { rules ->
+                async {
+                    query(rules.shape.query)!!
+                        .consume { binding ->
+                            this@coroutineScope.launch {
+                                findOrCreate(rules = rules, data = binding).forEach {
+                                    it.append(binding)
                                 }
-                            }.join()
-                    }
-                }.awaitAll()
-            }
+                            }
+                        }.join()
+                }
+            }.awaitAll()
         }
     }
 
@@ -113,7 +103,7 @@ class Stream private constructor(
      *  parameters (rules & timestamp). Creates a new fragment that satisfies these parameters, if necessary.
      * Returns at least one fragment
      */
-    private suspend fun findOrCreate(rules: Rules, data: Binding) = innerLock.withLock {
+    private suspend fun findOrCreate(rules: Rules, data: Binding) =
         fragments
             .getOrPut(rules) { mutableListOf() }
             .filter { it.canStore(data) }
@@ -130,18 +120,20 @@ class Stream private constructor(
                         publish(path = this.name) {
                             fragment(this@createFragment)
                         }
-                        publish(path = this@Stream.name) {
-                            +this@Stream.uri has TREE.relation being fragmentRelation(this@createFragment)
+                        if (filled()) {
+                            // forgetting about this fragment to save memory - reading data is always done from a publisher
+                            //  anyway
+                            fragments[rules]!!.remove(this)
                         }
-                        // forgetting about this fragment to save memory - reading data is always done from a publisher
-                        //  anyway
-                        fragments[rules]!!.remove(this)
                     }
                 )
+                // publishing the fragment relation as well
+                publish(path = this@Stream.name) {
+                    +this@Stream.uri has TREE.relation being fragmentRelation(fragment)
+                }
                 fragments[rules]!!.add(fragment)
                 listOf(fragment)
             }
-    }
 
     suspend fun query(
         publisher: Publisher,
@@ -267,7 +259,7 @@ class Stream private constructor(
     class Fragment private constructor(
         internal val properties: Properties,
         private val configuration: Configuration,
-        private val onFinished: suspend Fragment.() -> Unit
+        private val onFinished: Fragment.() -> Unit
     ): RDFBuilder.Element by properties {
 
         data class Properties(
@@ -294,23 +286,20 @@ class Stream private constructor(
             this._data.append(data)
         }
 
+        fun filled() = count >= configuration.resourceSize
+
         val shape: Shape
             get() = properties.rules.shape
-
-        // so only 1 writer/reader is working w/ this fragment's data
-        private val lock = Mutex()
 
         /**
          * Returns true if this fragment can store the given data
          */
-        internal suspend fun canStore(data: Binding): Boolean = lock.withLock {
-            data.id() in range && count < configuration.resourceSize
-        }
+        internal fun canStore(data: Binding) = data.id() in range && !filled()
 
         /**
          * Adds the binding to the fragment
          */
-        internal suspend fun append(data: Binding) = lock.withLock {
+        internal fun append(data: Binding) {
             val result = properties.rules.shape.encode(data)
             add(result)
             if (count >= configuration.resourceSize) {
@@ -321,21 +310,22 @@ class Stream private constructor(
         /**
          * Flushes the existing buffer, so it can be published, even when it is small
          */
-        internal suspend fun flush() = lock.withLock {
+        internal fun flush() {
             if (count == 0) {
-                return@withLock
+                warn("Nothing to flush for fragment `${properties.name}`.")
+                return
             }
             onFinished()
         }
 
         companion object {
 
-            suspend fun Stream.createFragment(
+            internal fun createFragment(
                 path: String,
                 start: Long,
                 configuration: Configuration,
                 rules: Rules,
-                onComplete: suspend Fragment.() -> Unit
+                onComplete: Fragment.() -> Unit
             ): Fragment {
                 return Fragment(
                     properties = Properties(
@@ -354,7 +344,7 @@ class Stream private constructor(
 
     companion object {
 
-        suspend fun create(
+        fun create(
             shape: Shape,
             rules: List<Rules>,
             name: String = "${shape.typeIdentifier.value.value.takeLast(10)}-stream",

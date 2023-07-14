@@ -18,8 +18,14 @@ class SolidPublisher(
         return connection.fromUrl("${context.path}/$path").read()
     }
 
-    override suspend fun publish(path: String, data: RDFBuilder.() -> Unit): Boolean {
-        return connection.fromUrl("${context.path}/$path").write(block = data) in 200..299
+    override fun publish(path: String, data: RDFBuilder.() -> Unit) {
+        // TODO: keep the data callback somewhere "safe" so it can be reused if this call fails due to lacking
+        //  authentication or other (temporary) failures, while dropping the data upon success or irrecoverable failure
+        connection.fromUrl("${context.path}/$path").write(block = data)
+    }
+
+    override suspend fun flush() {
+        connection.flush()
     }
 
 }
