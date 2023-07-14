@@ -1,6 +1,7 @@
 package be.ugent.idlab.predict.ldests.util
 
 import be.ugent.idlab.predict.ldests.lib.node.*
+import be.ugent.idlab.predict.ldests.lib.rdf.N3Triple
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
@@ -29,12 +30,22 @@ actual suspend fun NodeStream.join() = suspendCancellableCoroutine { cont: Cance
     )
 }
 
-actual fun <T> T.streamify(): ReadableNodeStream<T> =
-    object: ReadableNodeStream<T>(
+actual fun N3Triple.streamify(): ReadableNodeStream<N3Triple> =
+    object: ReadableNodeStream<N3Triple>(
         options = dyn("objectMode" to true)
     ) {
         override fun read() {
             push(this@streamify)
+            destroy()
+        }
+    }
+
+actual fun Iterable<N3Triple>.streamify(): ReadableNodeStream<N3Triple> =
+    object: ReadableNodeStream<N3Triple>(
+        options = dyn("objectMode" to true)
+    ) {
+        override fun read() {
+            this@streamify.forEach { triple -> push(triple) }
             destroy()
         }
     }

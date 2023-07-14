@@ -9,7 +9,12 @@ expect open class InputStream<T>: Stream
 /**
  * Creates a single-entry stream of the provided value, useful if "slow" data insertions are happening
  */
-expect fun <T> T.streamify(): InputStream<T>
+expect fun Triple.streamify(): InputStream<Triple>
+
+/**
+ * Creates a multi-entry stream of the provided values, useful if "segmented" data insertions are happening
+ */
+expect fun Iterable<Triple>.streamify(): InputStream<Triple>
 
 /**
  * Suspends until the stream finished

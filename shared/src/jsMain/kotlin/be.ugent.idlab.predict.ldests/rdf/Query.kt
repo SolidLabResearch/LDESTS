@@ -6,6 +6,7 @@ import be.ugent.idlab.predict.ldests.util.InputStream
 import be.ugent.idlab.predict.ldests.util.dyn
 import be.ugent.idlab.predict.ldests.util.error
 import be.ugent.idlab.predict.ldests.util.toStream
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.await
 
 actual typealias Binding = ComunicaBinding
@@ -40,6 +41,9 @@ actual suspend fun TripleProvider.query(query: Query): InputStream<Binding>? = w
                 .toStream()
         } catch (t: Throwable) {
             error("Query failed: ${t.message}")
+            if (t is CancellationException) {
+                throw t
+            }
             null
         }
     }
@@ -52,6 +56,9 @@ actual suspend fun TripleProvider.query(query: Query): InputStream<Binding>? = w
                 .toStream()
         } catch (t: Throwable) {
             error("Query failed: ${t.message}")
+            if (t is CancellationException) {
+                throw t
+            }
             null
         }
     }
@@ -64,6 +71,9 @@ actual suspend fun TripleProvider.query(query: Query): InputStream<Binding>? = w
                 .toStream()
         } catch (t: Throwable) {
             error("Query failed: ${t.message}")
+            if (t is CancellationException) {
+                throw t
+            }
             null
         }
     }

@@ -35,11 +35,12 @@ class LDESTS private constructor(
     // lock responsible for all resources that aren't used by the stream (yet)
     private val resourceLock = Mutex()
     // resource used for adding triples manually
-    private val input = StreamingResource()
+    private lateinit var inputJob: Job
+    private var input = StreamingResource()
 
     suspend fun init() {
         publishers.forEach { it.subscribe(scope, buffer) }
-        scope.launch {
+        inputJob = scope.launch {
             // starting this in a separate job, as the insert blocks until finished, but input of type StreamingResource
             //  never finishes on its own, and this would then never return
             with (stream) { input.insert() }
@@ -60,6 +61,10 @@ class LDESTS private constructor(
         input.add(data.streamify())
     }
 
+    fun insert(data: Iterable<Triple>) {
+        input.add(data.streamify())
+    }
+
     suspend fun query(
         publisher: Publisher,
         constraints: Map<NamedNodeTerm, Iterable<NamedNodeTerm>>,
@@ -73,11 +78,15 @@ class LDESTS private constructor(
         warn("Flush: releasing assigned resources.")
         resourceLock.lock()
         input.stop()
+        inputJob.join()
         warn("Flush: waiting for the stream to finish.")
         stream.flush()
         // NOTE: it is not possible to call `job.join()` here when testing, it probably deadlocks the code due
         //  to the single threaded nature of JS (`flush` waiting on `join`, waiting in `globalscope` which waits on `flush` ?)
         warn("Flush: completed!")
+        // creating a new input stream
+        input = StreamingResource()
+        inputJob = scope.launch { with(stream) { input.insert() } }
         // unlocking again, so new data additions can be made
         resourceLock.unlock()
     }

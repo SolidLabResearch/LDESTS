@@ -84,6 +84,12 @@ async function main() {
         stream.insert(triple);
     }
     await stream.flush();
+    const triples = new Array<Quad>();
+    for await (const triple of generateRandomData(10)) {
+        triples.push(triple)
+    }
+    stream.insertBulk(triples);
+    await stream.flush();
     await stream.query(
         "http://localhost:3000",
         (triple) => console.log(`Got object ${triple.object.value}`),
