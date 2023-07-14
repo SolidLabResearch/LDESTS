@@ -69,6 +69,11 @@ class LDESTSJS private constructor(
         parent.insert(data)
     }
 
+    @ExternalUse
+    fun insertBulk(data: Array<N3Triple>) {
+        parent.insert(data.asIterable())
+    }
+
     /** Helper methods **/
 
     // dynamic constraints: `predicate`: ["value1", "value2", ...]
