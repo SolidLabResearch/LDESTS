@@ -1,5 +1,4 @@
 import org.jetbrains.kotlin.gradle.dsl.KotlinJsCompile
-import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension
 import org.jetbrains.kotlin.incremental.createDirectory
 
 plugins {
@@ -10,6 +9,10 @@ version = "1.0-SNAPSHOT"
 
 tasks.withType<KotlinJsCompile>().configureEach {
     kotlinOptions.moduleKind = "commonjs"
+}
+
+afterEvaluate {
+    buildCompatPackage()
 }
 
 kotlin {
@@ -42,29 +45,29 @@ kotlin {
     }
 }
 
-afterEvaluate {
+fun buildCompatPackage() {
     // task to build the JS base code
-    val buildJsCompatTask = tasks.create("buildJsCompatTask", Exec::class.java) {
-        workingDir = File("src/jsMain/js")
-        commandLine = listOf("npm", "pack", "--pack-destination", "./build")
-        doFirst { mkdir("${workingDir.parent}/build") }
-    }
-    project.tasks.getByName("compileKotlinJs").dependsOn(buildJsCompatTask)
-    // task to integrate incremunica
-    val configureIncremunicaEngine = tasks.create("configureIncremunicaEngine", Exec::class.java) {
-        val lib = File("${workingDir.absolutePath}/" + File("src/jsMain/js/lib"))
-        if (!File("$lib/incremunica/").exists()) {
-            buildJsCompatTask.dependsOn(this)
-            exec {
-                workingDir = lib
-                workingDir.createDirectory()
-                commandLine("git", "clone", "https://github.com/maartyman/incremunica.git")
-            }
+    val root = project.rootDir
+    if (!File("$root/shared/src/jsMain/js/build/ldests_compat-1.0.0.tgz").exists()) {
+        val buildJsCompatTask = tasks.create("buildJsCompatTask", Exec::class.java) {
+            workingDir = File("src/jsMain/js")
+            commandLine = listOf("npm", "pack", "--pack-destination", "./build")
+            doFirst { mkdir("${workingDir.parent}/build") }
         }
-        workingDir = File("$lib/incremunica")
-        commandLine("yarn", "install")
+        project.tasks.getByName("compileKotlinJs").dependsOn(buildJsCompatTask)
+        // task to integrate incremunica
+        tasks.create("configureIncremunicaEngine", Exec::class.java) {
+            val lib = File("${workingDir.absolutePath}/" + File("src/jsMain/js/lib"))
+            if (!File("$lib/incremunica/").exists()) {
+                buildJsCompatTask.dependsOn(this)
+                exec {
+                    workingDir = lib
+                    workingDir.createDirectory()
+                    commandLine("git", "clone", "https://github.com/maartyman/incremunica.git")
+                }
+            }
+            workingDir = File("$lib/incremunica")
+            commandLine("yarn", "install")
+        }
     }
 }
-
-// Use a proper version of webpack, TODO remove after updating to Kotlin 1.9.
-rootProject.the<NodeJsRootExtension>().versions.webpack.version = "5.76.2"

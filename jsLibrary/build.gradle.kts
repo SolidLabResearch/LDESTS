@@ -17,29 +17,8 @@ plugins {
 //}
 
 afterEvaluate {
-    // task to copy the resulting generated code to the example app's modules
-    val updateExampleApp = tasks.create("updateExampleApp", Copy::class.java) {
-        doFirst { mkdir("../exampleJsApp/node_modules/ldests") }
-        from("../build/js/packages/ldests")
-        into("../exampleJsApp/node_modules/ldests")
-    }
-    // task to update the exampleJsApp with this base code
-    val updateExampleAppCompat = tasks.create("updateExampleAppCompat", Copy::class.java) {
-        doFirst { mkdir("../exampleJsApp/node_modules/ldests/node_modules/ldests_compat") }
-        from("../shared/src/jsMain/js")
-        into("../exampleJsApp/node_modules/ldests/node_modules/ldests_compat")
-    }
-    updateExampleApp.finalizedBy(updateExampleAppCompat)
-    // task to test the library by running the `exampleJsApp`
-    val testLibraryTask = tasks.create("testLibraryTask", Exec::class.java) {
-        workingDir = File("..")
-        commandLine = listOf("npx", "ts-node", "exampleJsApp/index.ts")
-    }
-    project.tasks.getByName("build").finalizedBy(updateExampleApp)
-    updateExampleApp.dependsOn(project.tasks.getByName("build"))
-
-    // configuring the test to run as well
-    updateExampleApp.finalizedBy(testLibraryTask)
+    createPostprocessingTasks()
+    createTestTask()
 }
 
 kotlin {
@@ -63,4 +42,46 @@ kotlin {
             }
         }
     }
+}
+
+fun createPostprocessingTasks() {
+    // "post-processing" the resulting JS/TS build
+    val root = project.rootDir
+    val jsBuild = tasks.create("jsBuild", Copy::class.java) {
+        doFirst { mkdir("$root/bin/js") }
+        from("$root/build/js/packages/ldests")
+        into("$root/bin/js")
+    }
+    val build = tasks.getByName("build")
+    // always require a build to happen first
+    jsBuild.dependsOn(build)
+    // also adding the compatibility layer, if it does not exist yet
+    if (!File("$root/bin/js/node_modules/ldests_compat").exists()) {
+        val jsFinalize = tasks.create("jsFinalize", Copy::class.java) {
+            doFirst { mkdir("$root/bin/js/node_modules/ldests_compat") }
+            from("$root/shared/src/jsMain/js")
+            into("$root/bin/js/node_modules/ldests_compat")
+        }
+        // always finalize the bin result after creating one, but always creating one first
+        jsBuild.finalizedBy(jsFinalize)
+        jsFinalize.dependsOn(jsBuild)
+    }
+}
+
+fun createTestTask() {
+    // task to link the resulting generated code to the example app's modules
+    val root = project.rootDir
+    val jsUpdateTask = tasks.create("jsUpdateTask", Exec::class.java) {
+        workingDir = File("$root/jsTest")
+        commandLine = listOf("npm", "i", "file:$root/bin/js")
+    }
+    // task to test the library by running the `exampleJsApp`
+    val jsTestTask = tasks.create("jsTestTask", Exec::class.java) {
+        workingDir = root
+        commandLine = listOf("npx", "ts-node", "jsTest/index.ts")
+    }
+    // configuring these tasks to require the build to be made, but not necessarily after every build
+    jsUpdateTask.dependsOn(project.tasks.getByName("jsBuild"))
+    // configuring the test to require this update to happen first
+    jsTestTask.dependsOn(jsUpdateTask)
 }
