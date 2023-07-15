@@ -1,8 +1,6 @@
 @file:JsModule("stream")
 package be.ugent.idlab.predict.ldests.lib.node
 
-import be.ugent.idlab.predict.ldests.lib.extra.AsyncGenerator
-
 external interface NodeStream {
 
     fun on(event: String, callback: (data: dynamic) -> Unit): NodeStream
@@ -24,27 +22,6 @@ open external class ReadableNodeStream<T>(
     open fun read()
 
     override fun on(event: String, callback: (data: dynamic) -> Unit): ReadableNodeStream<T>
-
-    override fun destroy(error: Error?)
-
-    companion object {
-
-        fun <T> from(generator: AsyncGenerator<T, *, *>, options: dynamic): ReadableNodeStream<T>
-
-    }
-
-
-}
-
-@JsName("Writable")
-open external class WritableNodeStream<T>(
-    options: dynamic
-): NodeStream {
-
-    @JsName("_write")
-    var onReceive: suspend (data: T, encoding: String, callback: () -> Unit) -> Unit
-
-    override fun on(event: String, callback: (data: dynamic) -> Unit): WritableNodeStream<T>
 
     override fun destroy(error: Error?)
 

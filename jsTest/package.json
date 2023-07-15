@@ -4,7 +4,8 @@
   "resolutions": {},
   "bundledDependencies": [],
   "dependencies": {
-    "ldests": "file:../bin/js"
+    "ldests": "file:../bin/js",
+    "n3": "^1.17.0"
   },
   "bundleDependencies": []
 }

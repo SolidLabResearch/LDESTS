@@ -31,6 +31,7 @@ class SolidConnection(
 
         open fun write(block: RDFBuilder.() -> Unit) {
             requests.add {
+                // TODO: check for success
                 submit(
                     // `PUT`ting the resource directly
                     type = SubmitRequestType.PUT,
@@ -54,6 +55,7 @@ class SolidConnection(
 
         override fun write(block: RDFBuilder.() -> Unit) {
             requests.add {
+                // TODO: check for success
                 // creating the folder
                 submit(
                     type = SubmitRequestType.PUT,

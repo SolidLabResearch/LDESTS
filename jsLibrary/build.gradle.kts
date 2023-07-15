@@ -51,6 +51,11 @@ fun createPostprocessingTasks() {
         doFirst { mkdir("$root/bin/js") }
         from("$root/build/js/packages/ldests")
         into("$root/bin/js")
+        // fix the created build's typescript definitions, which is currently still missing the import statement
+        //  of the referenced external types
+        doLast {
+            File("$root/bin/js/kotlin/ldests.d.ts").appendText("\nimport { Triple, Store } from \"n3\";")
+        }
     }
     val build = tasks.getByName("build")
     // always require a build to happen first
@@ -61,6 +66,13 @@ fun createPostprocessingTasks() {
             doFirst { mkdir("$root/bin/js/node_modules/ldests_compat") }
             from("$root/shared/src/jsMain/js")
             into("$root/bin/js/node_modules/ldests_compat")
+            // also installing the modules, just in case
+            doLast {
+                exec {
+                    workingDir = File("$root/bin/js")
+                    commandLine = listOf("npm", "i")
+                }
+            }
         }
         // always finalize the bin result after creating one, but always creating one first
         jsBuild.finalizedBy(jsFinalize)

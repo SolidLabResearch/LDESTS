@@ -24,5 +24,3 @@ expect suspend fun Stream.join()
 expect fun fromFile(filepath: String): InputStream<String>
 
 expect fun InputStream<String>.mapToTriples(): InputStream<Triple>
-
-expect inline fun <T> InputStream<T>.consume(crossinline block: (T) -> Unit): Stream

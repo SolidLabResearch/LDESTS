@@ -1,7 +1,6 @@
 @file:JsModule("@comunica/query-sparql")
 package be.ugent.idlab.predict.ldests.lib.rdf
 
-import be.ugent.idlab.predict.ldests.lib.extra.AsyncIterator
 import kotlin.js.Promise
 
 @JsName("QueryEngine")
@@ -12,15 +11,15 @@ external class ComunicaQueryEngine {
 
 }
 
-external class ComunicaBindingStream: AsyncIterator<ComunicaBinding> {
+external class ComunicaBindingStream {
 
     fun destroy(error: Error?)
 
     fun on(event: String, callback: (value: dynamic) -> Unit): ComunicaBindingStream
 
-    override fun read(): ComunicaBinding?
+    fun read(): ComunicaBinding?
 
-    override fun once(event: String, callback: (data: dynamic) -> Unit)
+    fun once(event: String, callback: (data: dynamic) -> Unit)
 
 }
 

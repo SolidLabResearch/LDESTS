@@ -14,22 +14,27 @@ actual suspend fun submit(
     url: String,
     headers: List<Pair<String, String>>,
     body: String
-): Int {
-    val response = fetchJs(
-        url = url,
-        options = dyn(
-            "method" to type.name,
-            "headers" to headers.toDynamic(),
-            "body" to body
-        )
-    ).await()
-    val status = response.status as Int
-    if (status in 200..299) {
-        log("Request", "${type.name}: $status ${response.statusText} - $url")
-    } else {
-        error("Request", "${type.name}: $status ${response.statusText} - $url")
+): Int? {
+    try {
+        val response = fetchJs(
+            url = url,
+            options = dyn(
+                "method" to type.name,
+                "headers" to headers.toDynamic(),
+                "body" to body
+            )
+        ).await()
+        val status = response.status as Int
+        if (status in 200..299) {
+            log("Request", "${type.name}: $status ${response.statusText} - $url")
+        } else {
+            error("Request", "${type.name}: $status ${response.statusText} - $url")
+        }
+        return response.status as Int
+    } catch (t: Throwable) {
+        error("Request", "${type.name}: ${t.message}")
+        return null
     }
-    return response.status as Int
 }
 
 

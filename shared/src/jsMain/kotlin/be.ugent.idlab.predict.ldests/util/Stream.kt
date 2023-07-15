@@ -1,6 +1,9 @@
 package be.ugent.idlab.predict.ldests.util
 
-import be.ugent.idlab.predict.ldests.lib.node.*
+import be.ugent.idlab.predict.ldests.lib.node.NodeStream
+import be.ugent.idlab.predict.ldests.lib.node.ReadableNodeStream
+import be.ugent.idlab.predict.ldests.lib.node.createReadFileStream
+import be.ugent.idlab.predict.ldests.lib.node.finished
 import be.ugent.idlab.predict.ldests.lib.rdf.N3Triple
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -52,33 +55,4 @@ actual fun Iterable<N3Triple>.streamify(): ReadableNodeStream<N3Triple> =
 
 actual fun fromFile(filepath: String): InputStream<String> {
     return createReadFileStream(filepath)
-}
-
-actual inline fun <T> InputStream<T>.consume(crossinline block: (T) -> Unit): Stream {
-    val consumer = createWritableNodeStream<T> { if (it != null) { block(it) } }
-    this.pipe(consumer)
-    return consumer
-}
-
-
-inline fun <T> createWritableNodeStream(
-    objectMode: Boolean = true,
-    crossinline block: suspend (data: T) -> Unit
-): WritableNodeStream<T> {
-    val opts: dynamic = Any()
-    opts.objectMode = objectMode
-    val stream = WritableNodeStream<T>(opts)
-    stream.onReceive = { data, _, callback ->
-        block(data)
-        callback()
-    }
-    return stream
-}
-
-inline fun <T> createReadableNodeStream(
-    objectMode: Boolean = true
-): ReadableNodeStream<T> {
-    val opts: dynamic = Any()
-    opts.objectMode = objectMode
-    return ReadableNodeStream(opts)
 }

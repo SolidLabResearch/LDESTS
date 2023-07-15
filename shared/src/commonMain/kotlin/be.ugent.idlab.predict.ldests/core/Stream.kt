@@ -12,8 +12,6 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 
@@ -65,7 +63,7 @@ class Stream private constructor(
     }
 
     fun flush() {
-        log("Lock in `flush` acquired. Flushing ${fragments.values.size} fragment(s)...")
+        log("Flushing ${fragments.values.size} fragment(s)...")
         fragments.values.forEach { fragments ->
             fragments.forEach { fragment ->
                 fragment.flush()
@@ -84,14 +82,13 @@ class Stream private constructor(
             //  to get the appropriate fragment (creating one if necessary)
             rules.values.map { rules ->
                 async {
-                    query(rules.shape.query)!!
-                        .consume { binding ->
-                            this@coroutineScope.launch {
-                                findOrCreate(rules = rules, data = binding).forEach {
-                                    it.append(binding)
-                                }
+                    query(rules.shape.query) { binding ->
+                        this@coroutineScope.launch {
+                            findOrCreate(rules = rules, data = binding).forEach {
+                                it.append(binding)
                             }
-                        }.join()
+                        }
+                    }
                 }
             }.awaitAll()
         }
@@ -103,7 +100,7 @@ class Stream private constructor(
      *  parameters (rules & timestamp). Creates a new fragment that satisfies these parameters, if necessary.
      * Returns at least one fragment
      */
-    private suspend fun findOrCreate(rules: Rules, data: Binding) =
+    private fun findOrCreate(rules: Rules, data: Binding) =
         fragments
             .getOrPut(rules) { mutableListOf() }
             .filter { it.canStore(data) }
@@ -139,30 +136,32 @@ class Stream private constructor(
         publisher: Publisher,
         constraints: Map<NamedNodeTerm, Iterable<NamedNodeTerm>>,
         range: LongRange = 0 until Long.MAX_VALUE
-    ): Flow<Triple> = coroutineScope {
+    ): Flow<Triple> {
         // getting the relevant fragments first, so only these get queried
         val fragments = getFragments(publisher = publisher, constraints = constraints, range = range)
         log("Querying over fragments `${fragments.joinToString(", ") { it.name }}`")
-        fragments
-            .map { (name, _, rules) ->
-                async {
-                    var data: String? = null
-                    publisher.fetch(name)
-                        ?.query(FRAGMENT_CONTENTS_SPARQL_QUERY(publisher.context.run { name.absolutePath }))
-                        ?.consume { data = it["data"]!!.value }
-                        ?.join()
-                        ?: warn("Fragment `${name}` failed to resolve!")
-                    data?.let { rules.shape.decode(
-                        publisher = publisher,
-                        range = range,
-                        constraints = constraints,
-                        source = it.asIterable()
-                    ) }
+        return coroutineScope {
+            fragments
+                .map { (name, _, rules) ->
+                    async {
+                        var data: String? = null
+                        publisher.fetch(name)
+                            ?.query(FRAGMENT_CONTENTS_SPARQL_QUERY(publisher.context.run { name.absolutePath })) {
+                                data = it["data"]!!.value
+                            }
+                            ?: warn("Fragment `${name}` failed to resolve!")
+                        data?.let { rules.shape.decode(
+                            publisher = publisher,
+                            range = range,
+                            constraints = constraints,
+                            source = it.asIterable()
+                        ) }
+                    }
                 }
-            }
-            .awaitAll()
-            .filterNotNull()
-            .merge()
+                .awaitAll()
+                .filterNotNull()
+                .merge()
+        }
     }
 
     private suspend fun getFragments(
@@ -202,20 +201,20 @@ class Stream private constructor(
      */
     private suspend fun Publisher.readFragmentData(): List<Fragment.Properties> = with (context) {
         val properties = mutableListOf<Fragment.Properties>()
-        fetch(path = name)?.query(FRAGMENT_RELATION_SPARQL_QUERY(context.run { uri }))
-            ?.consume { binding ->
+        fetch(path = name)
+            ?.query(
+                FRAGMENT_RELATION_SPARQL_QUERY(context.run { uri })
+            ) { binding ->
                 // every binding contains a fragment that simply has to map to shape information
-                with (context) {
-                    properties.add(
-                        Fragment.Properties(
-                            name = (binding["name"]!! as NamedNodeTerm).relativePath,
-                            start = (binding["start"]!! as LiteralTerm).value.toLong(),
-                            rules = rules[(binding["constraints"]!! as NamedNodeTerm).relativePath.substringAfterLast('/')]!!
-                        )
+                properties.add(
+                    Fragment.Properties(
+                        name = (binding["name"]!! as NamedNodeTerm).relativePath,
+                        start = (binding["start"]!! as LiteralTerm).value.toLong(),
+                        rules = rules[(binding["constraints"]!! as NamedNodeTerm).relativePath.substringAfterLast('/')]!!
                     )
-                }
-            }?.join()
-            ?: warn("Tried to read fragment data, but failed to query `${this@readFragmentData::class.simpleName}`.")
+                )
+            }
+            ?: warn("Tried to read fragment data, but failed to query path `$name` on `${this@readFragmentData::class.simpleName}`.")
         properties
     }
 
@@ -362,12 +361,10 @@ class Stream private constructor(
         }
 
         suspend fun TripleProvider.extractRuleInformation(stream: NamedNodeTerm) =
-            query(CONSTRAINT_SPARQL_QUERY_FOR_STREAM(stream))
-                ?.consumeAsRuleData()
-                ?.mapKeys { it.key.removePrefix(stream.value) }
+            retrieveRuleData(stream).mapKeys { it.key.removePrefix(stream.value) }
 
         suspend fun TripleProvider.extractShapeInformation(stream: NamedNodeTerm) =
-            query(SHAPE_SPARQL_QUERY_FOR_STREAM(stream))?.consumeAsShapeInformation()
+            retrieveShapeData(stream)
 
     }
 

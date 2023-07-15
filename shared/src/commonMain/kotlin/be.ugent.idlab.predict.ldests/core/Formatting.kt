@@ -3,7 +3,8 @@ package be.ugent.idlab.predict.ldests.core
 import be.ugent.idlab.predict.ldests.rdf.*
 import be.ugent.idlab.predict.ldests.rdf.ontology.*
 import be.ugent.idlab.predict.ldests.rdf.ontology.LDESTS
-import be.ugent.idlab.predict.ldests.util.*
+import be.ugent.idlab.predict.ldests.util.error
+import be.ugent.idlab.predict.ldests.util.warn
 
 internal fun RDFBuilder.stream(stream: Stream) {
     // creating the shape first, in the same document for now (and thus 'local' uri)
@@ -54,15 +55,16 @@ SELECT ?rule ?ruleArg ?ruleVal WHERE {
     ?constraints <${SHAPETS.constantValue.value}> ?ruleVal .
 }""")
 
-internal suspend fun InputStream<Binding>.consumeAsRuleData(): Map<String, Map<NamedNodeTerm, List<Term>>> {
-    // asserting non-null everywhere, callers job to use it on the correct binding stream
+internal suspend fun TripleProvider.retrieveRuleData(
+    stream: NamedNodeTerm
+): Map<String, Map<NamedNodeTerm, List<Term>>> {
     val result = mutableMapOf<String, MutableMap<NamedNodeTerm, MutableList<Term>>>()
-    consume { binding ->
+    query(CONSTRAINT_SPARQL_QUERY_FOR_STREAM(stream)) { binding ->
         result
             .getOrPut(binding["rule"]!!.value) { mutableMapOf() }
             .getOrPut(binding["ruleArg"]!! as NamedNodeTerm) { mutableListOf() }
             .add(binding["ruleVal"]!!)
-    }.join()
+    }
     return result
 }
 
@@ -185,7 +187,7 @@ SELECT ?shapeTarget ?propType ?propPath ?propKind ?propDType ?propDefValue ?prop
 }
 """)
 
-internal suspend fun InputStream<Binding>.consumeAsShapeInformation(): Shape? {
+internal suspend fun TripleProvider.retrieveShapeData(stream: NamedNodeTerm): Shape? {
     var type: NamedNodeTerm? = null
     var identifierPath: String? = null
     var identifierType: String? = null
@@ -194,7 +196,7 @@ internal suspend fun InputStream<Binding>.consumeAsShapeInformation(): Shape? {
     //  need to be represented in a intermediate way first
     val consts = mutableMapOf<NamedNodeTerm, MutableList<Term>>()
     try {
-        consume { binding ->
+        query(SHAPE_SPARQL_QUERY_FOR_STREAM(stream)) { binding ->
             binding["shapeTarget"]?.let { type = it as NamedNodeTerm }
             when (binding["propType"]!!.value) {
                 SHAPETS.Identifier.value -> {
@@ -218,7 +220,7 @@ internal suspend fun InputStream<Binding>.consumeAsShapeInformation(): Shape? {
                     warn("Unrecognized shape property type found: `${binding["propType"]!!.value}`")
                 }
             }
-        }.join()
+        }
     } catch (e: Throwable) {
         error("Something went wrong while parsing shape information: ${e.message}")
         return null

@@ -73,9 +73,7 @@ async function main() {
         .shape(shape)
         .queryUri("https://saref.etsi.org/core/measurementMadeBy")
         .attachSolidPublisher("http://localhost:3000")
-//         .attachDebugPublisher()
         .create();
-    // await stream.append("../DAHCC-Data/dataset_participant_sample_accel_data.nt");
     for await (const triple of generateRandomData(10)) {
         stream.insert(triple);
     }
@@ -88,10 +86,10 @@ async function main() {
     await stream.flush();
     await stream.query(
         "http://localhost:3000",
-        (triple) => console.log(`Got object ${triple.object.value}`),
+        (triple) => console.log(`Got object ${triple.toJSON()}`),
         {
             "https://saref.etsi.org/core/relatesToProperty": ["https://dahcc.idlab.ugent.be/Ontology/SensorsAndWearables/SmartphoneAcceleration/x", "https://dahcc.idlab.ugent.be/Ontology/SensorsAndWearables/SmartphoneAcceleration/z"],
-            "https://saref.etsi.org/core/measurementMadeBy": "https://dahcc.idlab.ugent.be/Ontology/SensorsAndWearables/Smartphone/OnePlus_IN2023"
+            "https://saref.etsi.org/core/measurementMadeBy": "https://dahcc.idlab.ugent.be/Ontology/SensorsAndWearables/Smartphone/RNG"
         },
         946718829400,
         946718829900

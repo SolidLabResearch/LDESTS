@@ -1,6 +1,6 @@
 # LDESTS: Linked Data Event Streams for Time Series
 ## Introduction
-LDESTS aims to make time series data streams using RDF feasable on platforms such as Solid. It achieves this by using a data model (also referred to as "shape") defining the per-sample structure. By defining this structure in advance, repetition in structure can be avoided by filtering out the unique properties of individual samples. As only these unique properties are encoded in the resulting data, a **lossless, highly compressed** stream can be achieved.
+LDESTS aims to make time series data streams using RDF feasible on platforms such as Solid. It achieves this by using a data model (also referred to as "shape") defining the per-sample structure. By defining this structure in advance, repetition in structure can be avoided by filtering out the unique properties of individual samples. As only these unique properties are encoded in the resulting data, a **lossless, highly compressed** stream can be achieved.
 ## Currently supported
 This tool is developed using [Kotlin Multiplatform](https://kotlinlang.org/docs/multiplatform.html), allowing for multiple target platforms. Currently, **only JS/TS on Node.js is supported**. There are currently **no** plans to **support JS/TS on Web**. There are plans to add Java (and Android) integration **at a later stage**.
 ## Getting started
@@ -73,17 +73,17 @@ It is possible for the resulting stream to not reflect new data *yet*. To make s
 await stream.flush(); // ensures all additional data is processed and published before it returns
 ```
 #### Consuming a stream
-First, the stream instance has to be created (as seen [here](#creating-a-stream)). Later, it will be possible to [automatically infer the stream's settings](#roadmap) (including the shape) when using a single publisher. Currently, only Solid pods are compatible with querying. Querying is possible through callbacks with `query` or directly as an `N3Store` by using `queryAsStore`:
+First, the stream instance has to be created (as seen [here](#creating-a-stream)). Later, it will be possible to [automatically infer the stream's settings](#roadmapfuture-work) (including the shape) when using a single publisher. Currently, only Solid pods are compatible with querying. Querying is possible through callbacks with `query` or directly as an `N3Store` by using `queryAsStore`:
 ```ts
 await stream.query(
     "http://mySolidPod", // creates a temporary default Solid Pod publisher, and looks for "myStream" as defined above
-    (triple) => console.log(`Got object ${triple.object.value}`), // logging the received triple's object
+    (triple) => console.log(`Got object ${triple.toJSON()}`), // logging the received triple's data
     { "myFirstConstraint": ["myConstantValue", "..."] } // adding extra constraints to the data
     // extra time constraints can be added here as well
 );
 ```
 By providing constraints to the call, the stream can filter the available data so only relevant fragments are considered. Time constraints can also be added as a 4th and 5th parameter. `await`ing the result of `query` is not required, but can help with flow control.\
-**Note:** as these triples are regenerated from the compressed stream, subject information is lost. Every sample's subject is unique throughout the query however.
+**Note:** as these triples are regenerated from the compressed stream, subject information is lost. Every sample's subject is unique throughout the query, however.
 ## How it works
 //TODO
 ## Roadmap/Future work
@@ -91,7 +91,7 @@ Current features and changes are either planned/possible (depending on requireme
 - Support for the JVM (& Android)
 - Automatic shape generation using samples from the data streams
 - SPARQL querying support on LDESTS streams
-- Infering stream properties
+- Inferring stream properties
 - Supporting variable stream layout on a per-publisher basis
 - Manual publisher management, including more granular control over their configurations
 - Support for custom publisher implementations
