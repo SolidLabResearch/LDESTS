@@ -1,4 +1,4 @@
-import { LDESTS, Shape } from "ldests";
+import { LDESTS, PublisherType, Shape, SolidPublisherConfig } from "ldests";
 import { Quad, DataFactory } from "n3";
 const { namedNode, literal } = DataFactory;
 
@@ -68,13 +68,14 @@ const shape = Shape.Companion.parse({
 });
 
 async function main() {
+    const pod = { type: PublisherType.Solid, url: "http://localhost:3000" } as SolidPublisherConfig
     const stream = await new LDESTS.Builder("test-stream")
-        .config({ 'window': 5, 'resourceSize': 2500 })
+        .config({ window: 5, resourceSize: 2500 })
         .shape(shape)
-        .queryUri("https://saref.etsi.org/core/measurementMadeBy")
-        .attachSolidPublisher("http://localhost:3000")
-        .create();
-    for await (const triple of generateRandomData(10)) {
+        .split("https://saref.etsi.org/core/measurementMadeBy")
+        .attach(pod)
+        .build();
+    for await (const triple of generateRandomData(3)) {
         stream.insert(triple);
     }
     await stream.flush();
@@ -82,10 +83,10 @@ async function main() {
     for await (const triple of generateRandomData(10)) {
         triples.push(triple)
     }
-    await stream.insertStore(triples);
+    await stream.insertAsStore(triples);
     await stream.flush();
     await stream.query(
-        "http://localhost:3000",
+        pod,
         (triple) => console.log(`Got object ${triple.object.value}`),
         {
             "https://saref.etsi.org/core/relatesToProperty": ["https://dahcc.idlab.ugent.be/Ontology/SensorsAndWearables/SmartphoneAcceleration/x", "https://dahcc.idlab.ugent.be/Ontology/SensorsAndWearables/SmartphoneAcceleration/z"],

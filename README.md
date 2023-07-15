@@ -50,14 +50,14 @@ Initialise or continue an LDESTS stream using the shape from above
 ```ts
 const stream = await new LDESTS.Builder("myStream")
     .shape(shape)
-    .create();
+    .build();
 ```
 The stream created above can be configured to your needs: you can
 - customise the configuration to have fragments to your desired size;
 - attach different publishers (ranging from Solid pods to in-memory `N3Store`s);
 - configure how to fragment your stream.
 
-If you no longer need your stream object, you can `close` the connection, allowing all last transactions to finalise and any connections to stop properly:
+If you no longer need your stream object, you can `close` the stream, allowing all last transactions to finalise and any connections to stop properly:
 ```ts
 await stream.close();
 ```
@@ -65,7 +65,8 @@ await stream.close();
 A stream can append new data through various sources:
 ```ts
 stream.insert(triple); // adds a single triple "asynchronously" to the input stream
-await stream.insertStore(triples); // adds an entire store, to be processed as a whole, and `await`s until finished
+await stream.insertAsStore(triples); // adds an array of triples, converted to a store to be processed as a whole, and `await`s until finished
+await stream.insertStore(store); // adds an entire store, to be processed as a whole, and `await`s until finished
 await stream.append("path/to/file.nt"); // adds an entire file, to be processed as a whole, and `await`s until finished
 ```
 It is possible for the resulting stream to not reflect new data *yet*. To make sure the stream has these new additions available to consumers, the stream has to be flushed:
@@ -76,8 +77,8 @@ await stream.flush(); // ensures all additional data is processed and published 
 First, the stream instance has to be created (as seen [here](#creating-a-stream)). Later, it will be possible to [automatically infer the stream's settings](#roadmapfuture-work) (including the shape) when using a single publisher. Currently, only Solid pods are compatible with querying. Querying is possible through callbacks with `query` or directly as an `N3Store` by using `queryAsStore`:
 ```ts
 await stream.query(
-    "http://mySolidPod", // creates a temporary default Solid Pod publisher, and looks for "myStream" as defined above
-    (triple) => console.log(`Got object ${triple.toJSON()}`), // logging the received triple's data
+    { type: PublisherType.Solid, url: "http://solid.local" } as SolidPublisherConfig, // looks for "myStream" as defined above on "solid.local"
+    (triple) => console.log(`Got object ${triple.object.value}`), // logging the received triple's objects
     { "myFirstConstraint": ["myConstantValue", "..."] } // adding extra constraints to the data
     // extra time constraints can be added here as well
 );
@@ -85,7 +86,9 @@ await stream.query(
 By providing constraints to the call, the stream can filter the available data so only relevant fragments are considered. Time constraints can also be added as a 4th and 5th parameter. `await`ing the result of `query` is not required, but can help with flow control.\
 **Note:** as these triples are regenerated from the compressed stream, subject information is lost. Every sample's subject is unique throughout the query, however.
 ## How it works
-//TODO
+The stream's data model describes every possible variation of the incoming data. By providing a property or a set of properties the stream has to fragment the incoming data with, all possible fixed data models can be generated. Every resulting model gets its own data stream. These data streams are being appended to when incoming data matches that stream's model.\
+Matching what data belongs to which data stream is being done through multiple SPARQL queries. As the individual data models represent a template for the individual samples of that stream, generic queries for these samples can be made, allowing for multiple SPARQL queries to occur over the input stream. By then analysing the resulting bindings generated from these queries, the data can be associated with the right fragment of that model's data stream.\
+Rereading this data also heavily uses the data models: by first analysing the requested data's constraints, a selection of data streams can be made. The fragments making up the various streams of interest are then filtered based on time. Every matching fragment is then read and parsed, which involves the recreation of all triples making up the original data sample, thanks to the presence of the data models.
 ## Roadmap/Future work
 Current features and changes are either planned/possible (depending on requirements/demand, in no particular order):
 - Support for the JVM (& Android)

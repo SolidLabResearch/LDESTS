@@ -28,6 +28,8 @@ actual class TripleStore(val store: N3Store) {
 
     actual fun add(triples: Collection<Triple>) = store.add(triples.toTypedArray())
 
+    actual fun add(triples: Array<Triple>) = store.add(triples)
+
     actual fun has(triple: Triple) = store.has(triple)
 
     actual fun delete(triple: Triple) = store.delete(triple)

@@ -1,11 +1,14 @@
 package be.ugent.idlab.predict.ldests.core
 
-import be.ugent.idlab.predict.ldests.rdf.*
-import be.ugent.idlab.predict.ldests.rdf.ontology.Ontology
-import be.ugent.idlab.predict.ldests.solid.SolidPublisher
+import be.ugent.idlab.predict.ldests.rdf.LocalResource
+import be.ugent.idlab.predict.ldests.rdf.NamedNodeTerm
+import be.ugent.idlab.predict.ldests.rdf.Triple
+import be.ugent.idlab.predict.ldests.rdf.TripleStore
 import be.ugent.idlab.predict.ldests.util.log
 import be.ugent.idlab.predict.ldests.util.warn
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class LDESTS private constructor(
     /** The stream itself, constructed outside of the LDESTS as this is an async operation **/
@@ -16,6 +19,10 @@ class LDESTS private constructor(
     private val buffer: PublishBuffer
 ) {
 
+    // lock used to guarantee that `flush`ing only occurs when there are no additions being made,
+    //  and additions are never overlapping
+    private val lock = Mutex()
+
     suspend fun init() {
         publishers.forEach { it.subscribe(buffer) }
         log("Flushing publishers for the first time")
@@ -23,9 +30,12 @@ class LDESTS private constructor(
     }
 
     suspend fun append(filename: String) {
-        with (stream) {
-            log("Appending data from file `$filename`")
-            LocalResource.from(filepath = filename).insert()
+        log("Acquiring lock to insert data from file into the stream")
+        lock.withLock {
+            with (stream) {
+                log("Appending data from file `$filename`")
+                LocalResource.from(filepath = filename).insert()
+            }
         }
     }
 
@@ -33,6 +43,7 @@ class LDESTS private constructor(
      * Inserts data as a streaming input source
      */
     fun insert(data: Triple) {
+        warn("`insert(Triple)`: This method is currently not implemented. Data has not been added")
 //        input.add(data.streamify())
     }
 
@@ -40,14 +51,18 @@ class LDESTS private constructor(
      * Inserts multiple data entries as a streaming input source
      */
     fun insert(data: Iterable<Triple>) {
+        warn("`insert(Iterable<Triple>)`: This method is currently not implemented. Data has not been added")
 //        input.add(data.streamify())
     }
 
     /**
-     * Inserts an entire chunk of data in one single go
+     * Inserts an entire chunk of data as a standalone "file" to the stream
      */
-    suspend fun add(data: Iterable<Triple>) = with (stream) {
-        LocalResource.wrap(data.toStore()).insert()
+    suspend fun add(data: TripleStore) = with (stream) {
+        log("Acquiring lock to insert data as a store into the stream")
+        lock.withLock {
+            LocalResource.wrap(data).insert()
+        }
     }
 
     suspend fun query(
@@ -61,19 +76,22 @@ class LDESTS private constructor(
     }
 
     suspend fun flush() {
-        log("Flushing stream data")
-        stream.flush()
-        log("Flushing all attached publishers")
-        buffer.flush()
+        log("Acquiring the lock prior to flushing the data")
+        lock.withLock {
+            log("Flushing stream data")
+            stream.flush()
+            log("Flushing all attached publishers")
+            buffer.flush()
+        }
     }
 
-    fun close() {
-        warn("Close called, stopping all ongoing work.")
-        warn("Close: stopping all publishers.")
-        publishers.forEach { it.close() }
-//        warn("Stopping remaining jobs.")
-//        scope.cancel()
-        log("Stream has been closed.")
+    suspend fun close() {
+        warn("Close called, waiting until the last job has finished")
+        lock.withLock {
+            warn("Close: stopping all publishers.")
+            publishers.forEach { it.close() }
+            log("Stream has been closed.")
+        }
     }
 
     class Builder(
@@ -119,44 +137,12 @@ class LDESTS private constructor(
             return this
         }
 
-        fun attachDebugPublisher(): Builder {
-            publishers.add(
-                object: Publisher() {
-
-                    override val context = RDFBuilder.Context(
-                        path = "debug.local"
-                    )
-
-                    override suspend fun fetch(path: String): TripleProvider? {
-                        // no compat checking relevant here
-                        return null
-                    }
-
-                    override fun publish(path: String, data: RDFBuilder.() -> Unit) {
-                        val str = Turtle(
-                            context = context,
-                            prefixes = Ontology.PREFIXES,
-                            block = data
-                        )
-                        log("In debugger for `$path`:\n$str")
-                    }
-
-                }
-            )
+        fun attach(publisher: Publisher): Builder {
+            publishers.add(publisher)
             return this
         }
 
-        fun attachMemoryPublisher(): Builder {
-            publishers.add(MemoryPublisher())
-            return this
-        }
-
-        fun attachSolidPublisher(url: String): Builder {
-            publishers.add(SolidPublisher(url = url))
-            return this
-        }
-
-        suspend fun create(): LDESTS = shape?.let {
+        suspend fun build(): LDESTS = shape?.let {
             val stream = Stream.create(
                 name = name,
                 configuration = configuration,
