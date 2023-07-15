@@ -54,6 +54,7 @@ class Stream private constructor(
                 TODO()
             }
         }
+        log("Found compatible pre-existing stream on publisher `${publisher::class.simpleName}`, continuing")
         return PublisherAttachResult.SUCCESS
     }
 

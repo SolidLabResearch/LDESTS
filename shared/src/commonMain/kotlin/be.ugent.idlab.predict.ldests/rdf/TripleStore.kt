@@ -9,11 +9,14 @@ expect class TripleStore() {
     val objects:    Array<Term>
 
     fun add(triple: Triple)
+    fun add(triples: Collection<Triple>)
     fun add(subject: Term, predicate: NamedNodeTerm, `object`: Term)
     fun has(triple: Triple)
     fun delete(triple: Triple)
 
     fun insert(context: RDFBuilder.Context, block: RDFBuilder.() -> Unit)
+
+    fun insert(context: RDFBuilder.Context, turtle: String)
 
     fun asIterable(): Iterable<Triple>
 

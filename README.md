@@ -36,12 +36,12 @@ Integrating custom streams is typically a two steps process.
 Create a data model/shape
 ```ts
 const shape: Shape = Shape.Companion.parse({
-    "type": "myDataType",
-    "identifier": "myDataIdentifier",
-    "constants": {
+    type: "myDataType",
+    identifier: "myDataIdentifier",
+    constants: {
         "myConstantProperty": ["myConstantValues", "..."]
     },
-    "variables": {
+    variables: {
         "myVariableProperty": "myVariableDatatype"
     }
 });

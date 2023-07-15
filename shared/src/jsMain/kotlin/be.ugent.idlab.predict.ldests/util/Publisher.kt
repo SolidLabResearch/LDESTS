@@ -50,10 +50,12 @@ actual suspend fun fetch(
         )
     ).await()
     val status = response.status as Int
-    if (status in 200..299) {
+    return if (status in 200..299) {
         log("Request", "GET: $status ${response.statusText} - $url")
+        (response.text() as Promise<String>).await()
     } else {
         error("Request", "GET: $status ${response.statusText} - $url")
+        error("Request", (response.text() as Promise<String>).await())
+        null
     }
-    return (response.text() as Promise<String>).await()
 }

@@ -51,6 +51,17 @@ external interface N3Literal: N3Term {
     val datatype: N3NamedNode
 }
 
+@JsName("Parser")
+external class N3Parser(
+    /* Optional { format: 'application/<>' | 'N-Triples' | ..., baseIRI: 'http://example.com/' } */
+    options: dynamic = definedExternally
+) {
+
+    /* Only using the synchronous version here */
+    fun parse(turtle: String): Array<N3Triple>
+
+}
+
 @JsName("StreamParser")
 external class N3StreamParser: ReadableNodeStream<N3Triple> {
 
@@ -72,6 +83,8 @@ external class N3Store {
     fun add(triple: N3Triple)
     @JsName("addQuad")
     fun add(subject: N3Term, predicate: N3Term, `object`: N3Term, graph: N3Term? = definedExternally)
+    @JsName("addQuads")
+    fun add(triples: Array<N3Triple>)
     fun has(triple: N3Triple)
     fun delete(triple: N3Triple)
     fun forEach(

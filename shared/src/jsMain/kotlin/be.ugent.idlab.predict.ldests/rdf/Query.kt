@@ -22,9 +22,16 @@ actual suspend fun TripleProvider.query(query: Query, callback: (ComunicaBinding
                     .query(query.sparql, dyn("sources" to arrayOf(data.store)))
                     .await()
 
-            is RemoteResource -> ComunicaQueryEngine()
-                .query(query.sparql, dyn("sources" to arrayOf(url)))
-                .await()
+            is RemoteResource -> {
+                // fallback for an issue with remote lookup in comunica
+                val resource = this.toLocalResource() ?: run {
+                    error("A query on `${this::class.simpleName}` failed during initialisation: `RemoteResource` could not be converted to a `LocalResource`!")
+                    return
+                }
+                ComunicaQueryEngine()
+                    .query(query.sparql, dyn("sources" to arrayOf(resource.data.store)))
+                    .await()
+            }
 
             is StreamingResource -> IncremunicaQueryEngine()
                 .query(query.sparql, dyn("sources" to arrayOf(stream)))
