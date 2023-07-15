@@ -1,7 +1,9 @@
 package be.ugent.idlab.predict.ldests.rdf
 
+import be.ugent.idlab.predict.ldests.lib.rdf.N3Parser
 import be.ugent.idlab.predict.ldests.lib.rdf.N3Store
 import be.ugent.idlab.predict.ldests.rdf.ontology.RDF
+import be.ugent.idlab.predict.ldests.util.dyn
 
 
 actual class TripleStore(val store: N3Store) {
@@ -24,6 +26,10 @@ actual class TripleStore(val store: N3Store) {
 
     actual fun add(triple: Triple) = store.add(triple)
 
+    actual fun add(triples: Collection<Triple>) = store.add(triples.toTypedArray())
+
+    actual fun add(triples: Array<Triple>) = store.add(triples)
+
     actual fun has(triple: Triple) = store.has(triple)
 
     actual fun delete(triple: Triple) = store.delete(triple)
@@ -37,6 +43,12 @@ actual class TripleStore(val store: N3Store) {
                 `object` = `object`.processed()
             )
         }.apply(block)
+    }
+
+    actual fun insert(context: RDFBuilder.Context, turtle: String) {
+        N3Parser(options = dyn("baseIRI" to context.path))
+            .parse(turtle)
+            .let { store.add(it) }
     }
 
     actual fun asIterable() = store.getQuads().asIterable()

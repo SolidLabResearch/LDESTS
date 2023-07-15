@@ -1,61 +1,41 @@
 package be.ugent.idlab.predict.ldests.core
 
-import be.ugent.idlab.predict.ldests.rdf.*
-import be.ugent.idlab.predict.ldests.rdf.ontology.Ontology
-import be.ugent.idlab.predict.ldests.solid.SolidPublisher
+import be.ugent.idlab.predict.ldests.rdf.LocalResource
+import be.ugent.idlab.predict.ldests.rdf.NamedNodeTerm
+import be.ugent.idlab.predict.ldests.rdf.Triple
+import be.ugent.idlab.predict.ldests.rdf.TripleStore
 import be.ugent.idlab.predict.ldests.util.log
-import be.ugent.idlab.predict.ldests.util.streamify
 import be.ugent.idlab.predict.ldests.util.warn
-import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 class LDESTS private constructor(
-    /**
-     * The stream itself, constructed outside of the LDESTS as this is an async operation
-     */
+    /** The stream itself, constructed outside of the LDESTS as this is an async operation **/
     private val stream: Stream,
-    /**
-     * Active publishers, all listening to the stream
-     */
+    /** Active publishers, all listening to the stream **/
     val publishers: List<Publisher>,
     /** Stream buffer, already attached **/
-    private val buffer: PublishBuffer,
-    /**
-     * Initial data that can already be published to the stream, generating the first fragment(s) if necessary
-     */
-    data: List<TripleProvider> = listOf()
+    private val buffer: PublishBuffer
 ) {
 
-    // keeps track of all IO (local & remote) regarding this LDESTS stream, hosting the jobs of the publisher & reader
-    //  as well
-    private val job = Job()
-    private val scope = CoroutineScope(Dispatchers.Unconfined + job)
-    // lock responsible for all resources that aren't used by the stream (yet)
-    private val resourceLock = Mutex()
-    // resource used for adding triples manually
-    private lateinit var inputJob: Job
-    private var input = StreamingResource()
+    // lock used to guarantee that `flush`ing only occurs when there are no additions being made,
+    //  and additions are never overlapping
+    private val lock = Mutex()
 
     suspend fun init() {
         publishers.forEach { it.subscribe(buffer) }
-        inputJob = scope.launch {
-            // starting this in a separate job, as the insert blocks until finished, but input of type StreamingResource
-            //  never finishes on its own, and this would then never return
-            with (stream) { input.insert() }
-        }
-        warn("Flushing publishers for the first time")
+        log("Flushing publishers for the first time")
         buffer.flush()
     }
 
     suspend fun append(filename: String) {
-        with (stream) {
-            log("Appending data from file `$filename`")
-            resourceLock.withLock {
-                LocalResource.from(filepath = filename)
-                // TODO: other resource related work here, such as checks for compat, maybe shape extraction, ...
-            }.insert()
+        log("Acquiring lock to insert data from file into the stream")
+        lock.withLock {
+            with (stream) {
+                log("Appending data from file `$filename`")
+                LocalResource.from(filepath = filename).insert()
+            }
         }
     }
 
@@ -63,21 +43,26 @@ class LDESTS private constructor(
      * Inserts data as a streaming input source
      */
     fun insert(data: Triple) {
-        input.add(data.streamify())
+        warn("`insert(Triple)`: This method is currently not implemented. Data has not been added")
+//        input.add(data.streamify())
     }
 
     /**
      * Inserts multiple data entries as a streaming input source
      */
     fun insert(data: Iterable<Triple>) {
-        input.add(data.streamify())
+        warn("`insert(Iterable<Triple>)`: This method is currently not implemented. Data has not been added")
+//        input.add(data.streamify())
     }
 
     /**
-     * Inserts an entire chunk of data in one single go
+     * Inserts an entire chunk of data as a standalone "file" to the stream
      */
-    suspend fun add(data: Iterable<Triple>) = with (stream) {
-        LocalResource.wrap(data.toStore()).insert()
+    suspend fun add(data: TripleStore) = with (stream) {
+        log("Acquiring lock to insert data as a store into the stream")
+        lock.withLock {
+            LocalResource.wrap(data).insert()
+        }
     }
 
     suspend fun query(
@@ -86,35 +71,27 @@ class LDESTS private constructor(
         range: LongRange = 0 until Long.MAX_VALUE
     ): Flow<Triple> {
         // TODO: require a compatibility check similar to onAttach
+        log("Executing a query for `${publisher::class.simpleName}` with ${constraints.size} constraint(s) and time range ${range.first} - ${range.last}")
         return stream.query(publisher, constraints, range)
     }
 
     suspend fun flush() {
-        warn("Flush: releasing assigned resources.")
-        resourceLock.lock()
-        input.stop()
-        inputJob.join()
-        warn("Flush: waiting for the stream to finish.")
-        stream.flush()
-        warn("Flushing all attached publishers")
-        buffer.flush()
-        // NOTE: it is not possible to call `job.join()` here when testing, it probably deadlocks the code due
-        //  to the single threaded nature of JS (`flush` waiting on `join`, waiting in `globalscope` which waits on `flush` ?)
-        warn("Flush: completed!")
-        // creating a new input stream
-        input = StreamingResource()
-        inputJob = scope.launch { with(stream) { input.insert() } }
-        // unlocking again, so new data additions can be made
-        resourceLock.unlock()
+        log("Acquiring the lock prior to flushing the data")
+        lock.withLock {
+            log("Flushing stream data")
+            stream.flush()
+            log("Flushing all attached publishers")
+            buffer.flush()
+        }
     }
 
     suspend fun close() {
-        warn("Close called, stopping all ongoing work.")
-        warn("Close: stopping all publishers.")
-        publishers.forEach { it.close() }
-        warn("Stopping remaining jobs.")
-        job.cancelAndJoin()
-        log("Stream has been closed.")
+        warn("Close called, waiting until the last job has finished")
+        lock.withLock {
+            warn("Close: stopping all publishers.")
+            publishers.forEach { it.close() }
+            log("Stream has been closed.")
+        }
     }
 
     class Builder(
@@ -160,44 +137,12 @@ class LDESTS private constructor(
             return this
         }
 
-        fun attachDebugPublisher(): Builder {
-            publishers.add(
-                object: Publisher() {
-
-                    override val context = RDFBuilder.Context(
-                        path = "debug.local"
-                    )
-
-                    override suspend fun fetch(path: String): TripleProvider? {
-                        // no compat checking relevant here
-                        return null
-                    }
-
-                    override fun publish(path: String, data: RDFBuilder.() -> Unit) {
-                        val str = Turtle(
-                            context = context,
-                            prefixes = Ontology.PREFIXES,
-                            block = data
-                        )
-                        log("In debugger for `$path`:\n$str")
-                    }
-
-                }
-            )
+        fun attach(publisher: Publisher): Builder {
+            publishers.add(publisher)
             return this
         }
 
-        fun attachMemoryPublisher(): Builder {
-            publishers.add(MemoryPublisher())
-            return this
-        }
-
-        fun attachSolidPublisher(url: String): Builder {
-            publishers.add(SolidPublisher(url = url))
-            return this
-        }
-
-        suspend fun create(): LDESTS = shape?.let {
+        suspend fun build(): LDESTS = shape?.let {
             val stream = Stream.create(
                 name = name,
                 configuration = configuration,

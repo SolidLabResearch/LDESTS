@@ -1,7 +1,5 @@
 package be.ugent.idlab.predict.ldests.rdf
 
-import be.ugent.idlab.predict.ldests.util.InputStream
-
 class Query(
     val sparql: String,
     // FIXME: support for more than just `SELECT ? WHERE` might be handy, also doesn't support more complex queries
@@ -35,13 +33,8 @@ expect class Binding {
 expect operator fun Binding.get(variable: String): Term?
 
 /**
- * Generic way of querying a stream (not very efficient)
- */
-expect suspend fun InputStream<Triple>.query(query: Query): InputStream<Binding>
-
-/**
  * Querying the provider (directly); most efficient way of obtaining a stream of bindings instantly. Can return
  *  null if the provider is either invalid (e.g. existing but non-rdf file), or contains no resources (remote)
  */
-expect suspend fun TripleProvider.query(query: Query): InputStream<Binding>?
+expect suspend fun TripleProvider.query(query: Query, callback: (Binding) -> Unit)
 

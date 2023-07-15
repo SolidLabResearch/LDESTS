@@ -1,6 +1,7 @@
 
 import be.ugent.idlab.predict.ldests.core.Shape
 import be.ugent.idlab.predict.ldests.rdf.asNamedNode
+import be.ugent.idlab.predict.ldests.util.keys
 
 @JsExport
 @JsName("Shape")
@@ -19,7 +20,7 @@ class ShapeJS private constructor(
         private val identifierType: String = "http://www.w3.org/2001/XMLSchema#dateTime"
     ) {
 
-        internal val builder = Shape.BuildScope(
+        private val builder = Shape.BuildScope(
             typeIdentifier = Shape.ClassProperty(type.asNamedNode())
         )
 
@@ -42,7 +43,40 @@ class ShapeJS private constructor(
             )
         }
 
+    }
+
+    companion object {
+
+        @ExternalUse
+        fun parse(description: ShapeDescription): ShapeJS {
+            val builder = Builder(
+                type = description.type,
+                identifier = description.identifier,
+                identifierType = description.identifierType ?: "http://www.w3.org/2001/XMLSchema#dateTime"
+            )
+            keys(description.constants).forEach { path ->
+                builder.constant(path = path, values = description.constants[path] as Array<String>)
+            }
+            keys(description.variables).forEach { path ->
+                builder.variable(path = path, type = description.variables[path] as String)
+            }
+            return builder.build()
+        }
 
     }
 
+}
+
+@JsExport
+@ExternalUse
+external interface ShapeDescription {
+    val type: String
+    val identifier: String
+    val identifierType: String?
+        get() = definedExternally
+
+    // {"path1": ["value1_1", "value1_2", ... ], ... }
+    val constants: dynamic
+    // {"path1": "type1", ... }
+    val variables: dynamic
 }

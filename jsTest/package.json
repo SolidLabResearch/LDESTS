@@ -1,0 +1,14 @@
+{
+  "name": "jsTest",
+  "version": "0.0.0",
+  "resolutions": {},
+  "bundledDependencies": [],
+  "dependencies": {
+    "ldests": "file:../bin/js",
+    "n3": "^1.17.0"
+  },
+  "bundleDependencies": [],
+  "devDependencies": {
+    "@types/n3": "^1.16.0"
+  }
+}

@@ -3,6 +3,7 @@ package be.ugent.idlab.predict.ldests.rdf
 import be.ugent.idlab.predict.ldests.lib.node.createReadFileStream
 import be.ugent.idlab.predict.ldests.lib.rdf.IncremunicaStreamingStore
 import be.ugent.idlab.predict.ldests.lib.rdf.N3Store
+import be.ugent.idlab.predict.ldests.lib.rdf.N3Triple
 import be.ugent.idlab.predict.ldests.util.InputStream
 import be.ugent.idlab.predict.ldests.util.join
 import be.ugent.idlab.predict.ldests.util.log
@@ -22,9 +23,9 @@ actual class LocalResource private constructor(
                 val store = N3Store()
                 createReadFileStream(filepath)
                     .mapToTriples()
-                    .on("data") { store.add(it) }
+                    .on("data") { triple: N3Triple -> store.add(triple) }
                     .join()
-                log("Read ${store.size} triples!")
+                log("LocalResource", "Read ${store.size} triples!")
                 TripleStore(store)
             }
         )

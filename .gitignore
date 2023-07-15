@@ -13,8 +13,9 @@ build/
 /captures
 .externalNativeBuild
 .cxx
-exampleJsApp/node_modules
-exampleJsApp/packages_imported
-exampleJsApp/package-lock.json
+jsTest/node_modules
+jsTest/packages_imported
+jsTest/package-lock.json
 kotlin-js-store/yarn.lock
 shared/src/jsMain/js/lib/
+bin/
