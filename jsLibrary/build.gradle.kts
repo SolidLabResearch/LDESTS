@@ -54,7 +54,7 @@ fun createPostprocessingTasks() {
         // fix the created build's typescript definitions, which is currently still missing the import statement
         //  of the referenced external types
         doLast {
-            File("$root/bin/js/kotlin/ldests.d.ts").appendText("\nimport { Triple, Store } from \"n3\";")
+            File("$root/bin/js/kotlin/ldests.d.ts").appendText("\nimport { Triple, Store, NamedNode } from \"n3\";")
         }
     }
     val build = tasks.getByName("build")

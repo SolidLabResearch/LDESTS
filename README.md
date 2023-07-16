@@ -84,7 +84,7 @@ await stream.query(
 );
 ```
 By providing constraints to the call, the stream can filter the available data so only relevant fragments are considered. Time constraints can also be added as a 4th and 5th parameter. `await`ing the result of `query` is not required, but can help with flow control.\
-**Note:** as these triples are regenerated from the compressed stream, subject information is lost. Every sample's subject is unique throughout the query, however.
+**Note:** as these triples are regenerated from the compressed stream, the exact subject URIs are lost. Every sample's subject is still unique throughout the query, however.
 ## How it works
 The stream's data model describes every possible variation of the incoming data. By providing a property or a set of properties the stream has to fragment the incoming data with, all possible fixed data models can be generated. Every resulting model gets its own data stream. These data streams are being appended to when incoming data matches that stream's model.\
 Matching what data belongs to which data stream is being done through multiple SPARQL queries. As the individual data models represent a template for the individual samples of that stream, generic queries for these samples can be made, allowing for multiple SPARQL queries to occur over the input stream. By then analysing the resulting bindings generated from these queries, the data can be associated with the right fragment of that model's data stream.\

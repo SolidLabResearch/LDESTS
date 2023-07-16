@@ -13,8 +13,8 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 
 class Shape private constructor(
-    internal val typeIdentifier: ClassProperty,
-    internal val sampleIdentifier: IdentifierProperty,
+    val typeIdentifier: ClassProperty,
+    val sampleIdentifier: IdentifierProperty,
     val properties: Map<NamedNodeTerm, Property>
 ) {
 

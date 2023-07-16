@@ -1,5 +1,6 @@
 
 import be.ugent.idlab.predict.ldests.core.Shape
+import be.ugent.idlab.predict.ldests.rdf.NamedNodeTerm
 import be.ugent.idlab.predict.ldests.rdf.asNamedNode
 import be.ugent.idlab.predict.ldests.util.keys
 
@@ -12,6 +13,12 @@ class ShapeJS private constructor(
 
     val query: String
         get() = shape.query.sparql
+
+    val sampleType: NamedNodeTerm
+        get() = shape.typeIdentifier.value
+
+    val sampleIdentifier: NamedNodeTerm
+        get() = shape.sampleIdentifier.predicate
 
     @ExternalUse
     class Builder(
