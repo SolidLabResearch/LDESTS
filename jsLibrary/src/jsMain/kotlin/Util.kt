@@ -25,22 +25,36 @@ inline fun <T> Collection<T>.arr() = toTypedArray()
 
 inline fun <R, reified T> List<R>.map(transform: (R) -> T) = Array(size) { transform(this[it]) }
 
-/** The application-wide logging config **/
+/** The application-wide logger **/
+
 
 @JsExport
 @ExternalUse
-object Logging {
+object Logger {
 
     @ExternalUse
-    const val LOG = 0
-    @ExternalUse
-    const val WARN = 1
-    @ExternalUse
-    const val ERROR = 2
+    enum class Severity {
+        Log, Warn, Error
+    }
 
     @ExternalUse
-    fun setLogLevel(level: Int) {
-        logLevel = LogLevel.values()[level]
+    fun setLogLevel(level: Severity) {
+        logLevel = LogLevel.entries[level.ordinal]
+    }
+
+    @ExternalUse
+    fun log(name: String, message: String) {
+        be.ugent.idlab.predict.ldests.util.log(location = name, text = message)
+    }
+
+    @ExternalUse
+    fun warn(name: String, message: String) {
+        be.ugent.idlab.predict.ldests.util.warn(location = name, text = message)
+    }
+
+    @ExternalUse
+    fun error(name: String, message: String) {
+        be.ugent.idlab.predict.ldests.util.error(location = name, text = message)
     }
 
 }
