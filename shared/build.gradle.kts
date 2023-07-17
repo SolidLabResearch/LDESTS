@@ -50,9 +50,9 @@ fun buildCompatPackage() {
     val root = project.rootDir
     if (!File("$root/shared/src/jsMain/js/build/ldests_compat-1.0.0.tgz").exists()) {
         val buildJsCompatTask = tasks.create("buildJsCompatTask", Exec::class.java) {
-            workingDir = File("src/jsMain/js")
+            doFirst { mkdir("$root/shared/src/jsMain/js/build") }
+            workingDir = File("$root/shared/src/jsMain/js")
             commandLine = listOf("npm", "pack", "--pack-destination", "./build")
-            doFirst { mkdir("${workingDir.parent}/build") }
         }
         project.tasks.getByName("compileKotlinJs").dependsOn(buildJsCompatTask)
         // task to integrate incremunica
