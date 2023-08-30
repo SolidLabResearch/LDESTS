@@ -2,7 +2,6 @@ package be.ugent.idlab.predict.ldests.rdf
 
 import be.ugent.idlab.predict.ldests.lib.rdf.ComunicaBinding
 import be.ugent.idlab.predict.ldests.lib.rdf.ComunicaQueryEngine
-import be.ugent.idlab.predict.ldests.lib.rdf.IncremunicaQueryEngine
 import be.ugent.idlab.predict.ldests.util.dyn
 import be.ugent.idlab.predict.ldests.util.error
 import be.ugent.idlab.predict.ldests.util.log
@@ -33,9 +32,9 @@ actual suspend fun TripleProvider.query(query: Query, callback: (ComunicaBinding
                     .await()
             }
 
-            is StreamingResource -> IncremunicaQueryEngine()
-                .query(query.sparql, dyn("sources" to arrayOf(stream)))
-                .await()
+//            is StreamingResource -> IncremunicaQueryEngine()
+//                .query(query.sparql, dyn("sources" to arrayOf(stream)))
+//                .await()
 
             else -> throw RuntimeException("Unrecognized triple provider used in `query`!")
         }

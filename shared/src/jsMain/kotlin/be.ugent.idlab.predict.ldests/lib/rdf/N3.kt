@@ -1,9 +1,6 @@
 @file:JsModule("n3")
 package be.ugent.idlab.predict.ldests.lib.rdf
 
-import be.ugent.idlab.predict.ldests.lib.node.NodeStream
-import be.ugent.idlab.predict.ldests.lib.node.ReadableNodeStream
-
 @JsName("Triple")
 external class N3Triple(
     subject: N3Term,
@@ -32,13 +29,22 @@ external interface N3Term {
 }
 
 @JsName("NamedNode")
-external interface N3NamedNode: N3Term
+external class N3NamedNode: N3Term {
+    override val value: String
+    override val type: String
+}
 
 @JsName("BlankNode")
-external interface N3BlankNode: N3Term
+external class N3BlankNode: N3Term {
+    override val value: String
+    override val type: String
+}
 
 @JsName("Literal")
-external interface N3Literal: N3Term {
+external class N3Literal: N3Term {
+    override val value: String
+    override val type: String
+
     /**
      * The language as lowercase BCP47 string (examples: en, en-gb)
      * or an empty string if the literal has no language.
@@ -48,7 +54,8 @@ external interface N3Literal: N3Term {
     /**
      * A NamedNode whose IRI represents the datatype of the literal.
      */
-    val datatype: N3NamedNode
+    @JsName("datatype")
+    val dataType: N3NamedNode
 }
 
 @JsName("Parser")
@@ -59,19 +66,6 @@ external class N3Parser(
 
     /* Only using the synchronous version here */
     fun parse(turtle: String): Array<N3Triple>
-
-}
-
-@JsName("StreamParser")
-external class N3StreamParser: ReadableNodeStream<N3Triple> {
-
-    override fun destroy(error: Error?)
-
-    override fun pipe(to: NodeStream)
-
-    override fun push(data: N3Triple?)
-
-    override fun on(event: String, callback: (data: dynamic) -> Unit): N3StreamParser
 
 }
 

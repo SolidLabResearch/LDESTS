@@ -6,13 +6,10 @@ import be.ugent.idlab.predict.ldests.lib.node.createReadFileStream
 import be.ugent.idlab.predict.ldests.lib.node.finished
 import be.ugent.idlab.predict.ldests.lib.rdf.N3Triple
 import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
-
-actual typealias Stream = NodeStream
-
-actual typealias InputStream<T> = ReadableNodeStream<T>
 
 actual suspend fun NodeStream.join() = suspendCancellableCoroutine { cont: CancellableContinuation<Unit> ->
     cont.invokeOnCancellation {
