@@ -1,6 +1,5 @@
 package be.ugent.idlab.predict.ldests.rdf
 
-import be.ugent.idlab.predict.ldests.util.InputStream
 import be.ugent.idlab.predict.ldests.util.fetch
 
 
@@ -36,22 +35,12 @@ class RemoteResource private constructor(
 
     /* Fetches the resource for offline querying (if possible) and returns it */
     suspend fun toLocalResource(): LocalResource? {
-        return fetch(
-            url = url,
-            headers = listOf("Content-type" to "text/turtle")
-        )?.let { turtle ->
+        return fetch(url = url, "Content-type" to "text/turtle")
+            ?.let { turtle ->
             LocalResource.wrap(
                 TripleStore().apply { insert(context = RDFBuilder.Context(path = url), turtle = turtle) }
             )
         }
     }
-
-}
-
-expect class StreamingResource(): TripleProvider {
-
-    fun add(stream: InputStream<Triple>)
-
-    fun stop()
 
 }

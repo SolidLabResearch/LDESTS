@@ -1,6 +1,9 @@
 package be.ugent.idlab.predict.ldests.util
 
 import kotlinx.coroutines.await
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.suspendCoroutine
 import kotlin.js.Promise
 
 @JsName("fetch")
@@ -40,13 +43,15 @@ actual suspend fun submit(
 
 actual suspend fun fetch(
     url: String,
-    headers: List<Pair<String, String>>,
+    vararg headers: Pair<String, List<String>>
 ): String? {
     val response = fetchJs(
         url = url,
         options = dyn(
             "method" to "GET",
-            "headers" to headers.toDynamic()
+            "headers" to headers
+                .map { (key, values) -> key to values.joinToString(separator = ",") }
+                .toDynamic()
         )
     ).await()
     val status = response.status as Int
@@ -57,5 +62,18 @@ actual suspend fun fetch(
         error("Request", "GET: $status ${response.statusText} - $url")
         error("Request", (response.text() as Promise<String>).await())
         null
+    }
+}
+
+// can throw
+actual suspend fun readFile(filename: String): String = suspendCoroutine { continuation ->
+    be.ugent.idlab.predict.ldests.lib.node.readFile(
+        filename = filename
+    ) { err, data ->
+        if (data != null) {
+            continuation.resume(data)
+        } else {
+            continuation.resumeWithException(err ?: RuntimeException())
+        }
     }
 }

@@ -16,6 +16,7 @@ afterEvaluate {
 }
 
 kotlin {
+    jvm()
 
     js(IR) {
         nodejs {
@@ -24,6 +25,8 @@ kotlin {
     }
 
     sourceSets {
+        val ktor_version: String by project
+
         val commonMain by getting {
             dependencies {
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.2")
@@ -39,6 +42,12 @@ kotlin {
                 implementation(npm("n3", "1.16.4"))
                 val util = projectDir.resolve("src/jsMain/js/build/ldests_compat-1.0.0.tgz").canonicalFile
                 implementation(npm("ldests_compat", "file:$util"))
+            }
+        }
+
+        val jvmMain by getting {
+            dependencies {
+                implementation("io.ktor:ktor-client-core:$ktor_version")
             }
         }
 

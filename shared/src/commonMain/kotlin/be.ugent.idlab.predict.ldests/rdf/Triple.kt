@@ -16,15 +16,14 @@ expect class Triple(
 
 expect interface Term {
     val value: String
-    val type: String
 }
 
-expect interface NamedNodeTerm: Term
+expect class NamedNodeTerm: Term
 
-expect interface BlankNodeTerm: Term
+expect class BlankNodeTerm: Term
 
-expect interface LiteralTerm: Term {
-    val datatype: NamedNodeTerm
+expect class LiteralTerm: Term {
+    val dataType: NamedNodeTerm
 }
 
 // helpers for the methods above
