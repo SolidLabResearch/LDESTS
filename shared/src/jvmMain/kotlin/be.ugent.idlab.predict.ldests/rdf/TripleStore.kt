@@ -1,101 +1,60 @@
 package be.ugent.idlab.predict.ldests.rdf
 
-import be.ugent.idlab.predict.ldests.lib.rdf.N3Parser
-import be.ugent.idlab.predict.ldests.lib.rdf.N3Store
-import be.ugent.idlab.predict.ldests.rdf.ontology.RDF
-import be.ugent.idlab.predict.ldests.util.dyn
 
+actual class TripleStore actual constructor() {
 
-actual class TripleStore(val store: N3Store) {
+    actual val size: Int
+        get() = TODO("Not yet implemented")
+    actual val subjects: Array<Term>
+        get() = TODO("Not yet implemented")
+    actual val predicates: Array<Term>
+        get() = TODO("Not yet implemented")
+    actual val objects: Array<Term>
+        get() = TODO("Not yet implemented")
 
-    actual val size
-        get() = store.size
+    actual fun add(triple: Triple) {
+        TODO()
+    }
 
-    actual val subjects
-        get() = store.getSubjects()
+    actual fun add(triples: Collection<Triple>) {
+        TODO()
+    }
 
-    actual val predicates
-        get() = store.getPredicates()
+    actual fun add(triples: Array<Triple>) {
+        TODO()
+    }
 
-    actual val objects
-        get() = store.getObjects()
+    actual fun add(
+        subject: Term,
+        predicate: NamedNodeTerm,
+        `object`: Term
+    ) {
+        TODO()
+    }
 
-    actual constructor(): this(store = N3Store())
+    actual fun has(triple: Triple) {
+        TODO()
+    }
 
-    actual fun add(subject: Term, predicate: NamedNodeTerm, `object`: Term) = store.add(subject, predicate, `object`)
+    actual fun delete(triple: Triple) {
+        TODO()
+    }
 
-    actual fun add(triple: Triple) = store.add(triple)
-
-    actual fun add(triples: Collection<Triple>) = store.add(triples.toTypedArray())
-
-    actual fun add(triples: Array<Triple>) = store.add(triples)
-
-    actual fun has(triple: Triple) = store.has(triple)
-
-    actual fun delete(triple: Triple) = store.delete(triple)
-
-    actual fun insert(context: RDFBuilder.Context, block: RDFBuilder.() -> Unit) {
-        RDFBuilder(context) { subject, predicate, `object`: Any ->
-            // this should be correct with the right usage
-            store.add(
-                subject = subject,
-                predicate = predicate,
-                `object` = `object`.processed()
-            )
-        }.apply(block)
+    actual fun insert(
+        context: RDFBuilder.Context,
+        block: RDFBuilder.() -> Unit
+    ) {
+        TODO()
     }
 
     actual fun insert(context: RDFBuilder.Context, turtle: String) {
-        N3Parser(options = dyn("baseIRI" to context.path))
-            .parse(turtle)
-            .let { store.add(it) }
+        TODO()
     }
 
-    actual fun asIterable() = store.getQuads().asIterable()
-
-    actual companion object;
-
-    private fun Any.processed(): Term = when (this) {
-        is RDFBuilder.Blank -> { processed() }
-        is RDFBuilder.List -> { processed() }
-        else /* Term hopefully */ -> {
-            /* no processing needed */
-            @Suppress("UNCHECKED_CAST_TO_EXTERNAL_INTERFACE")
-            this as Term
-        }
+    actual fun asIterable(): Iterable<Triple> {
+        TODO("Not yet implemented")
     }
 
-    private fun RDFBuilder.Blank.processed(): Term {
-        // creating a blank node to represent this term
-        val blank = store.createBlankNode()
-        // pairing all data members to this term as a subject
-        data.forEach { (predicate, `object`) ->
-            store.add(
-                subject = blank,
-                predicate = predicate,
-                `object` = `object`.processed()
-            )
-        }
-        return blank
-    }
-
-    private fun RDFBuilder.List.processed(): Term {
-        val subj = store.createBlankNode()
-        store.add(
-            subject = subj,
-            predicate = RDF.first,
-            `object` = data.first().processed()
-        )
-        store.add(
-            subject = subj,
-            predicate = RDF.rest,
-            `object` = if (data.size > 1) {
-                RDFBuilder.List(data.subList(1, data.size)).processed()
-            } else {
-                RDF.nil
-            }
-        )
-        return subj
-    }
+    actual companion object
 
 }
