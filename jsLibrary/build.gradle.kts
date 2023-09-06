@@ -58,7 +58,7 @@ fun export() {
                 workingDir = File("$root/bin/js")
                 commandLine = listOf("npm", "i")
             }
-            File("$root/bin/js/kotlin/ldests.d.ts").appendText("\nimport { Triple, Store, NamedNode } from \"n3\";")
+            File("$root/bin/js/kotlin/ldests.d.ts").appendText("\nimport { Triple, NamedNode } from \"n3\";")
         }
     }
     val build = tasks.getByName("build")

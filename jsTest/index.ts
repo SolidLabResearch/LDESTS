@@ -76,19 +76,10 @@ async function main() {
         .attach(pod)
         .build();
     for await (const triple of generateRandomData(10)) {
-        stream.insert(triple);
+        stream.insertTriple(triple);
     }
     await stream.flush();
-    await stream.query(
-        pod,
-        (triple) => console.log(`Got object ${triple.object.value}`),
-        {
-            "https://saref.etsi.org/core/relatesToProperty": ["https://dahcc.idlab.ugent.be/Ontology/SensorsAndWearables/SmartphoneAcceleration/x", "https://dahcc.idlab.ugent.be/Ontology/SensorsAndWearables/SmartphoneAcceleration/z"],
-            "https://saref.etsi.org/core/measurementMadeBy": "https://dahcc.idlab.ugent.be/Ontology/SensorsAndWearables/Smartphone/RNG"
-        },
-        Date.now() - 5000000,
-        Date.now()
-    );
+    await stream.query(pod, "SELECT * WHERE { ?s ?p ?o . }", (binding) => { console.log(binding.toString()) });
     await stream.close();
     console.log("Finished main");
 }

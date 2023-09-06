@@ -15,11 +15,11 @@ import kotlin.coroutines.resumeWithException
 
 actual typealias Binding = ComunicaBinding
 
-actual suspend fun TripleProvider.query(query: Query, callback: (ComunicaBinding) -> Unit) {
+actual suspend fun TripleProvider.query(sparql: String, callback: (ComunicaBinding) -> Unit) {
     val stream = try {
         when (this) {
             is LocalResource -> ComunicaQueryEngine()
-                    .query(query.sparql, dyn("sources" to arrayOf(data.store)))
+                    .query(sparql, dyn("sources" to arrayOf(data.store)))
                     .await()
 
             is RemoteResource -> {
@@ -29,19 +29,19 @@ actual suspend fun TripleProvider.query(query: Query, callback: (ComunicaBinding
                     return
                 }
                 ComunicaQueryEngine()
-                    .query(query.sparql, dyn("sources" to arrayOf(resource.data.store)))
+                    .query(sparql, dyn("sources" to arrayOf(resource.data.store)))
                     .await()
             }
 
             is StreamingResource -> IncremunicaQueryEngine()
-                .query(query.sparql, dyn("sources" to arrayOf(stream)))
+                .query(sparql, dyn("sources" to arrayOf(stream)))
                 .await()
 
             else -> throw RuntimeException("Unrecognized triple provider used in `query`!")
         }
     } catch (t: Throwable) {
         error("A query on `${this::class.simpleName}` failed during initialisation: ${t.message?.substringBefore('\n')}")
-        error("Query used when the exception occurred:\n${query.sparql}")
+        error("Query used when the exception occurred:\n${sparql}")
         // ensure the coroutine is still active, so rethrow if necessary
         coroutineContext.ensureActive()
         // the callback is never used, so returning early

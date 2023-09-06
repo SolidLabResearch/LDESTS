@@ -1,27 +1,10 @@
 package be.ugent.idlab.predict.ldests.rdf
 
-class Query(
-    val sparql: String,
-    // FIXME: support for more than just `SELECT ? WHERE` might be handy, also doesn't support more complex queries
-    val variables: Set<String> = if (sparql.startsWith("SELECT * WHERE")) {
-        // everything matching the variable pattern is kept
-        Regex(pattern = "\\?([a-zA-Z0-9]+)")
-            .findAll(sparql)
-            .map { it.groups[1]!!.value }
-            .toSet()
-    } else {
-        // only keeping the ones mentioned in "SELECT `?xyz` WHERE"
-        Regex(pattern = "SELECT\\s+((?:\\s*\\?[a-zA-Z0-9]+)+)\\s+WHERE")
-            .find(sparql)!!
-            .groups[1]!!
-            .value
-            .let {
-                Regex(pattern = "\\?([a-zA-Z0-9]+)")
-                    .findAll(it)
-                    .map { it.groupValues[1] }
-            }
-            .toSet()
-    }
+// TODO: add optimisation strategies for querying a stream
+//  possible approach: analyse all constants, and have a shape w/ all constraint sets result in a subset
+//  of these constraint sets to query (and possibly time based constraints)
+data class Query(
+    val sparql: String
 )
 
 // not nested, as it is a typealias in the JS target
@@ -33,8 +16,9 @@ expect class Binding {
 expect operator fun Binding.get(variable: String): Term?
 
 /**
- * Querying the provider (directly); most efficient way of obtaining a stream of bindings instantly. Can return
- *  null if the provider is either invalid (e.g. existing but non-rdf file), or contains no resources (remote)
+ * Querying the provider (directly); most efficient way of obtaining a stream of bindings instantly. The callback is
+ *  possibly never invoked if the provider is either invalid (e.g. existing but non-rdf file), or contains
+ *  no (accessible) resources (remote)
  */
-expect suspend fun TripleProvider.query(query: Query, callback: (Binding) -> Unit)
+expect suspend fun TripleProvider.query(sparql: String, callback: (Binding) -> Unit)
 

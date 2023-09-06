@@ -1,14 +1,14 @@
 
 import be.ugent.idlab.predict.ldests.core.*
-import be.ugent.idlab.predict.ldests.lib.rdf.N3Store
+import be.ugent.idlab.predict.ldests.lib.rdf.ComunicaBinding
 import be.ugent.idlab.predict.ldests.lib.rdf.N3Triple
 import be.ugent.idlab.predict.ldests.rdf.NamedNodeTerm
-import be.ugent.idlab.predict.ldests.rdf.TripleStore
+import be.ugent.idlab.predict.ldests.rdf.Query
 import be.ugent.idlab.predict.ldests.rdf.asNamedNode
-import be.ugent.idlab.predict.ldests.rdf.toStore
 import be.ugent.idlab.predict.ldests.solid.SolidPublisher
 import be.ugent.idlab.predict.ldests.util.keys
 import be.ugent.idlab.predict.ldests.util.warn
+import kotlin.collections.set
 import kotlin.time.Duration.Companion.minutes
 
 /**
@@ -24,7 +24,12 @@ class LDESTSJS private constructor(
 
     @Suppress("NON_EXPORTABLE_TYPE") // wrong in this case
     @ExternalUse
-    fun append(filename: String) = promise { parent.append(filename = filename) }
+    fun insertFile(filename: String) = promise { parent.append(filename = filename) }
+
+    @ExternalUse
+    fun insertTriple(data: N3Triple) {
+        parent.insert(data)
+    }
 
     @Suppress("NON_EXPORTABLE_TYPE") // wrong in this case
     @ExternalUse
@@ -34,60 +39,15 @@ class LDESTSJS private constructor(
     @ExternalUse
     fun close() = promise { parent.close() }
 
-    @ExternalUse
-    fun queryAsStore(
-        publisher: PublisherConfig,
-        constraints: dynamic,
-        start: Double = .0,
-        end: Double = Double.MAX_VALUE,
-    ) = promise {
-        val pub = publisher.toPublisher() ?: return@promise null
-        val store = N3Store()
-        parent.query(
-            publisher = pub,
-            constraints = parseConstraints(constraints),
-            range = start.toLong() until end.toLong()
-        ).collect { store.add(it) }
-        store
-    }
-
     @Suppress("NON_EXPORTABLE_TYPE") // wrong in this case
     @ExternalUse
     fun query(
         publisher: PublisherConfig,
-        callback: (N3Triple) -> Unit,
-        constraints: dynamic,
-        start: Double = 0.0,
-        end: Double = Double.MAX_VALUE,
+        query: String,
+        callback: (ComunicaBinding) -> Unit
     ) = promise {
         val pub = publisher.toPublisher() ?: return@promise
-        parent.query(
-            publisher = pub,
-            constraints = parseConstraints(constraints),
-            range = start.toLong() until end.toLong()
-        ).collect(callback)
-    }
-
-    @ExternalUse
-    fun insert(data: N3Triple) {
-        parent.insert(data)
-    }
-
-    @ExternalUse
-    fun insertBulk(data: Array<N3Triple>) {
-        parent.insert(data.asIterable())
-    }
-
-    @Suppress("NON_EXPORTABLE_TYPE") // wrong in this case
-    @ExternalUse
-    fun insertAsStore(data: Array<N3Triple>) = promise {
-        parent.add(data.toStore())
-    }
-
-    @Suppress("NON_EXPORTABLE_TYPE") // wrong in this case
-    @ExternalUse
-    fun insertStore(data: N3Store) = promise {
-        parent.add(TripleStore(data))
+        parent.query(pub, Query(query), callback)
     }
 
     /** Helper methods **/
@@ -105,7 +65,6 @@ class LDESTSJS private constructor(
                     (constraint as Array<String>).map { it.asNamedNode() }
                 } else {
                     // named node term hopefully
-                    @Suppress("UNCHECKED_CAST_TO_EXTERNAL_INTERFACE")
                     listOf(constraint as NamedNodeTerm)
                 }
             }

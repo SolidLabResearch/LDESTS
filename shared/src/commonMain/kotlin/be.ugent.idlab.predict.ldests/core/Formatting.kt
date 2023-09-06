@@ -42,7 +42,8 @@ internal fun RDFBuilder.constraint(constraint: Map.Entry<NamedNodeTerm, Shape.Co
 }
 
 // the associated sparql query
-internal fun CONSTRAINT_SPARQL_QUERY_FOR_STREAM(stream: NamedNodeTerm) = Query("""
+internal fun CONSTRAINT_SPARQL_QUERY_FOR_STREAM(stream: NamedNodeTerm) =
+"""
 SELECT ?rule ?ruleArg ?ruleVal WHERE {
     <${stream.value}> a <${LDESTS.StreamType.value}> .
     <${stream.value}> <${LDESTS.constraintSet.value}> ?set .
@@ -53,7 +54,7 @@ SELECT ?rule ?ruleArg ?ruleVal WHERE {
     ?rule <${LDESTS.constraints.value}> ?constraints .
     ?constraints <${SHACL.path.value}> ?ruleArg .
     ?constraints <${SHAPETS.constantValue.value}> ?ruleVal .
-}""")
+}"""
 
 internal suspend fun TripleProvider.retrieveRuleData(
     stream: NamedNodeTerm
@@ -77,7 +78,8 @@ internal fun RDFBuilder.fragmentRelation(fragment: Stream.Fragment) = blank {
     +LDESTS.constraints being fragment.properties.rules.uri
 }
 
-internal fun FRAGMENT_RELATION_SPARQL_QUERY(stream: NamedNodeTerm) = Query("""
+internal fun FRAGMENT_RELATION_SPARQL_QUERY(stream: NamedNodeTerm) =
+"""
 SELECT ?constraints ?name ?start WHERE {
     <${stream.value}> a <${LDESTS.StreamType.value}> .
     <${stream.value}> <${TREE.relation.value}> ?fragment .
@@ -86,20 +88,21 @@ SELECT ?constraints ?name ?start WHERE {
         <${TREE.node.value}> ?name ;
         <${TREE.value.value}> ?start .
 }
-""")
+"""
 
 internal fun RDFBuilder.fragment(fragment: Stream.Fragment) {
     +fragment.uri has RDF.type being LDESTS.FragmentType
     +fragment.uri has LDESTS.contents being fragment.data.asLiteral()
 }
 
-internal fun FRAGMENT_CONTENTS_SPARQL_QUERY(fragment: NamedNodeTerm) = Query("""
+internal fun FRAGMENT_CONTENTS_SPARQL_QUERY(fragment: NamedNodeTerm) =
+"""
 SELECT ?data WHERE {
     <${fragment.value}>
         a <${LDESTS.FragmentType.value}> ;
         <${LDESTS.contents.value}> ?data
 }
-""")
+"""
 
 fun RDFBuilder.shape(subject: NamedNodeTerm, shape: Shape) {
     +subject has RDF.type being SHACL.Shape
@@ -156,7 +159,7 @@ internal fun RDFBuilder.property(property: Pair<NamedNodeTerm, Shape.VariablePro
 }
 
 // the associated sparql query
-internal fun SHAPE_SPARQL_QUERY_FOR_STREAM(stream: NamedNodeTerm) = Query("""
+internal fun SHAPE_SPARQL_QUERY_FOR_STREAM(stream: NamedNodeTerm) = """
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
 SELECT ?shapeTarget ?propType ?propPath ?propKind ?propDType ?propDefValue ?propValues ?propStart ?propEnd WHERE {
@@ -185,7 +188,7 @@ SELECT ?shapeTarget ?propType ?propPath ?propKind ?propDType ?propDefValue ?prop
         ?shapeProperty <https://predict.ugent.be/shape#endIndex> ?propEnd .
     }
 }
-""")
+"""
 
 internal suspend fun TripleProvider.retrieveShapeData(stream: NamedNodeTerm): Shape? {
     var type: NamedNodeTerm? = null

@@ -5,7 +5,6 @@ import be.ugent.idlab.predict.ldests.util.log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -74,14 +73,9 @@ class LDESTS private constructor(
         }
     }
 
-    suspend fun query(
-        publisher: Publisher,
-        constraints: Map<NamedNodeTerm, Iterable<NamedNodeTerm>>,
-        range: LongRange = 0 until Long.MAX_VALUE
-    ): Flow<Triple> {
+    suspend fun query(publisher: Publisher, query: Query, callback: (Binding) -> Unit) {
         // TODO: require a compatibility check similar to onAttach
-        log("Executing a query for `${publisher::class.simpleName}` with ${constraints.size} constraint(s) and time range ${range.first} - ${range.last}")
-        return stream.query(publisher, constraints, range)
+        return stream.query(publisher, query, callback)
     }
 
     suspend fun flush() {

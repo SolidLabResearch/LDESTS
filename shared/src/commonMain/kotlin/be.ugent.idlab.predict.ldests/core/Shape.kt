@@ -299,11 +299,7 @@ class Shape private constructor(
         // TODO: the resulting query can be improved upon by setting the subject `?s` up front and using `;`
         val select = "SELECT ?$BINDING_IDENTIFIER " + properties.values.mapNotNull { it.identifier }.joinToString(" ") { "?$it" } + " WHERE"
         val body = "?s a <${typeIdentifier.value.value}> .\n?s <${sampleIdentifier.predicate.value}> ?id .\n" + properties.asIterable().joinToString("\n") { (it.key to it.value).query() }
-        val query = "$select {\n$body\n}"
-        Query(
-            sparql = query,
-            variables = setOf("id") + properties.values.mapNotNull { it.identifier }
-        )
+        "$select {\n$body\n}"
     }
 
     fun encode(result: Binding): String {
@@ -325,18 +321,26 @@ class Shape private constructor(
         var j = 0
         // the various extracted fields, first one should be the text representation of the identifier
         val data = mutableListOf<String>()
+        // putting constraint based checks in place
+        // NOTE: these checks have not been tested!
+        val checks = constraints.map { (predicate, values) ->
+            // finding the slot index
+            slots[predicate]?.let { index ->
+                val prop = properties[predicate]!! as ConstantProperty
+                val bounds = index .. index + 1
+                { raw: List<String> -> prop.decode(raw.subList(bounds.first, bounds.last)).first() in values }
+            } ?: run {
+                // if `null`, the query constraint is not part of the rule set variables, and is
+                //  thus already matched when querying over fragments
+                  { _: List<String> -> true }
+            }
+        }
         // callback used when data is found
         suspend fun process() {
             // checking the id to see if there's any publishing requested
             if (data.isEmpty() || data.first().toLong() !in range) return
             // checking all constraints first to see if they match up prior to generating any triples
-            val relevant = constraints.all { (predicate, values) ->
-                // finding the slot index; if `null`, the query constraint is not part of the rule set variables, and is
-                //  thus already matched when querying over fragments
-                val index = slots[predicate] ?: return@all true
-                val decoded = (properties[predicate]!! as ConstantProperty).decode(data.subList(index, index + 1)).first()
-                decoded in values
-            }
+            val relevant = checks.all { check -> check(data) }
             if (!relevant) return
             // processing the data & sending it through
             data.decode(publisher.context, j++).forEach { emit(it) }
