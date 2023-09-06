@@ -17,8 +17,8 @@ plugins {
 //}
 
 afterEvaluate {
-    createPostprocessingTasks()
-    createTestTask()
+    export()
+    test()
 }
 
 kotlin {
@@ -44,7 +44,7 @@ kotlin {
     }
 }
 
-fun createPostprocessingTasks() {
+fun export() {
     // "post-processing" the resulting JS/TS build
     val root = project.rootDir
     val jsBuild = tasks.create("jsBuild", Copy::class.java) {
@@ -54,33 +54,19 @@ fun createPostprocessingTasks() {
         // fix the created build's typescript definitions, which is currently still missing the import statement
         //  of the referenced external types
         doLast {
+            exec {
+                workingDir = File("$root/bin/js")
+                commandLine = listOf("npm", "i")
+            }
             File("$root/bin/js/kotlin/ldests.d.ts").appendText("\nimport { Triple, Store, NamedNode } from \"n3\";")
         }
     }
     val build = tasks.getByName("build")
     // always require a build to happen first
     jsBuild.dependsOn(build)
-    // also adding the compatibility layer, if it does not exist yet
-    if (!File("$root/bin/js/node_modules/ldests_compat").exists()) {
-        val jsFinalize = tasks.create("jsFinalize", Copy::class.java) {
-            doFirst { mkdir("$root/bin/js/node_modules/ldests_compat") }
-            from("$root/shared/src/jsMain/js")
-            into("$root/bin/js/node_modules/ldests_compat")
-            // also installing the modules, just in case
-            doLast {
-                exec {
-                    workingDir = File("$root/bin/js")
-                    commandLine = listOf("npm", "i")
-                }
-            }
-        }
-        // always finalize the bin result after creating one, but always creating one first
-        jsBuild.finalizedBy(jsFinalize)
-        jsFinalize.dependsOn(jsBuild)
-    }
 }
 
-fun createTestTask() {
+fun test() {
     // task to link the resulting generated code to the example app's modules
     val root = project.rootDir
     val jsUpdateTask = tasks.create("jsUpdateTask", Exec::class.java) {

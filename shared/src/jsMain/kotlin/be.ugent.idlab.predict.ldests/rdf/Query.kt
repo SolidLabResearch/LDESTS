@@ -2,6 +2,7 @@ package be.ugent.idlab.predict.ldests.rdf
 
 import be.ugent.idlab.predict.ldests.lib.rdf.ComunicaBinding
 import be.ugent.idlab.predict.ldests.lib.rdf.ComunicaQueryEngine
+import be.ugent.idlab.predict.ldests.lib.rdf.IncremunicaQueryEngine
 import be.ugent.idlab.predict.ldests.util.dyn
 import be.ugent.idlab.predict.ldests.util.error
 import be.ugent.idlab.predict.ldests.util.log
@@ -32,14 +33,15 @@ actual suspend fun TripleProvider.query(query: Query, callback: (ComunicaBinding
                     .await()
             }
 
-//            is StreamingResource -> IncremunicaQueryEngine()
-//                .query(query.sparql, dyn("sources" to arrayOf(stream)))
-//                .await()
+            is StreamingResource -> IncremunicaQueryEngine()
+                .query(query.sparql, dyn("sources" to arrayOf(stream)))
+                .await()
 
             else -> throw RuntimeException("Unrecognized triple provider used in `query`!")
         }
     } catch (t: Throwable) {
         error("A query on `${this::class.simpleName}` failed during initialisation: ${t.message?.substringBefore('\n')}")
+        error("Query used when the exception occurred:\n${query.sparql}")
         // ensure the coroutine is still active, so rethrow if necessary
         coroutineContext.ensureActive()
         // the callback is never used, so returning early

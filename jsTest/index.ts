@@ -75,15 +75,9 @@ async function main() {
         .split("https://saref.etsi.org/core/measurementMadeBy")
         .attach(pod)
         .build();
-    for await (const triple of generateRandomData(3)) {
+    for await (const triple of generateRandomData(10)) {
         stream.insert(triple);
     }
-    await stream.flush();
-    const triples = new Array<Quad>();
-    for await (const triple of generateRandomData(10)) {
-        triples.push(triple)
-    }
-    await stream.insertAsStore(triples);
     await stream.flush();
     await stream.query(
         pod,
