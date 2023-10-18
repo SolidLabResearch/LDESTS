@@ -16,4 +16,4 @@ pluginManagement {
 rootProject.name = "ldests"
 
 include(":shared")
-include(":jsLibrary")
+include(":js")

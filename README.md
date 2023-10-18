@@ -15,14 +15,14 @@ Begin by cloning the repository to a known location:
 ```
 [user@host ~]$ git clone https://github.com/SolidLabResearch/LDESTS.git
 ```
-Next, navigate to the new folder and start the building process:
+Next, navigate to the new folder and start the building process (either `debug` if you want to diagnose a problem in the source code, or `release`):
 ```
 [user@host ~]$ cd LDESTS
-[user@host LDESTS]$ ./gradlew jsLibrary:jsBuild
+[user@host LDESTS]$ ./gradlew js:release
 ```
 This process can take some time, as it fetches and configures all dependencies for the build to take place. After the process has finished, the folder `bin/js` should contain the resulting library. From here, you can add it as a dependency to your own project by running:
 ```
-[user@host MyProject]$ npm install file:path/to/LDESTS/bin/js
+[user@host MyProject]$ npm install file:path/to/LDESTS/bin/js/ldests-$version.tgz
 ```
 Finally, you should be able to include the library into your own project, with type definitions available in TS projects:
 ```ts
