@@ -22,6 +22,16 @@ expect class LocalResource: TripleProvider {
 
 }
 
+expect class StreamingResource(): TripleProvider {
+
+    /** Adds a new triple to the stream. Might throw if the stream has been closed (platform dependant) **/
+    fun add(triple: Triple)
+
+    /** Closes the stream, allowing the queries to finish **/
+    fun close()
+
+}
+
 class RemoteResource private constructor(
     val url: String
     /* No buf here, as there's no guarantee that the contents remain unchanged as-is */

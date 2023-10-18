@@ -9,7 +9,6 @@ import be.ugent.idlab.predict.ldests.util.*
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import kotlin.time.Duration
@@ -135,13 +134,15 @@ class Stream private constructor(
 
     suspend fun query(
         publisher: Publisher,
-        constraints: Map<NamedNodeTerm, Iterable<NamedNodeTerm>>,
-        range: LongRange = 0 until Long.MAX_VALUE
-    ): Flow<Triple> {
+        query: Query,
+        callback: (Binding) -> Unit
+    ) {
+        // TODO: apply query specific optimisations with `getFragments`
+//        val fragments = getFragments(publisher = publisher, constraints = constraints, range = range)
         // getting the relevant fragments first, so only these get queried
-        val fragments = getFragments(publisher = publisher, constraints = constraints, range = range)
+        val fragments = publisher.readFragmentData()
         log("Querying over fragments `${fragments.joinToString(", ") { it.name }}`")
-        return coroutineScope {
+        coroutineScope {
             fragments
                 .map { (name, _, rules) ->
                     async {
@@ -151,18 +152,27 @@ class Stream private constructor(
                                 data = it["data"]!!.value
                             }
                             ?: warn("Fragment `${name}` failed to resolve!")
+                        // TODO: apply query specific optimisations with `shape.decode`
                         data?.let { rules.shape.decode(
                             publisher = publisher,
-                            range = range,
-                            constraints = constraints,
+                            range = 0L..Long.MAX_VALUE,
+                            constraints = emptyMap(),
                             source = it.asIterable()
                         ) }
+//                        data?.let { rules.shape.decode(
+//                            publisher = publisher,
+//                            range = range,
+//                            constraints = constraints,
+//                            source = it.asIterable()
+//                        ) }
                     }
                 }
                 .awaitAll()
                 .filterNotNull()
                 .merge()
         }
+            .toAsyncResource()
+            .query(query.sparql, callback)
     }
 
     private suspend fun getFragments(
@@ -171,6 +181,8 @@ class Stream private constructor(
         range: LongRange
     ): List<Fragment.Properties> {
         // getting all relevant rules based on the provided constraints
+        // TODO: this can later be replaced with a publisher based fetch so constraint sets based on a per-publisher basis
+        //  can be properly respected
         val relevant = rules.values.filter { it.shape.complies(constraints) }.map { it.name }
         if (relevant.isEmpty()) {
             warn("The provided constraints resulted in no queryable constraint sets!")

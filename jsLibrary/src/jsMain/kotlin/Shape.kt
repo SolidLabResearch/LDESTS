@@ -12,7 +12,7 @@ class ShapeJS private constructor(
 ) {
 
     val query: String
-        get() = shape.query.sparql
+        get() = shape.query
 
     val sampleType: NamedNodeTerm
         get() = shape.typeIdentifier.value

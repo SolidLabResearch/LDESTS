@@ -1,12 +1,14 @@
-@file:JsModule("ldests_compat")
+@file:JsModule("@incremunica/incremental-rdf-streaming-store")
 
 package be.ugent.idlab.predict.ldests.lib.rdf
 
 @JsName("StreamingStore")
 external class IncremunicaStreamingStore() {
 
-    // TODO: single triple insertion method
+    @JsName("addQuad")
+    fun add(triple: N3Triple)
 
-    fun end()
+    @JsName("end")
+    fun close()
 
 }

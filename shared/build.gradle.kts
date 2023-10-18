@@ -1,5 +1,4 @@
 import org.jetbrains.kotlin.gradle.dsl.KotlinJsCompile
-import org.jetbrains.kotlin.incremental.createDirectory
 
 plugins {
     kotlin("multiplatform")
@@ -9,10 +8,6 @@ version = "1.0-SNAPSHOT"
 
 tasks.withType<KotlinJsCompile>().configureEach {
     kotlinOptions.moduleKind = "commonjs"
-}
-
-afterEvaluate {
-    buildCompatPackage()
 }
 
 kotlin {
@@ -38,10 +33,179 @@ kotlin {
         val jsMain by getting {
             dependsOn(commonMain)
             dependencies {
-                implementation(npm("@comunica/query-sparql", "2.6.9"))
+//                implementation(npm("@incremunica/query-sparql-incremental", "1.0.3"))
+//                implementation(npm("@incremunica/config-query-sparql-incremental", "1.0.3"))
+//                implementation(npm("@incremunica/incremental-rdf-streaming-store", "1.0.0"))
+//                implementation(npm("@comunica/query-sparql", "2.6.8"))
+
+                implementation(npm("@comunica/actor-context-preprocess-source-to-destination", "2.6.8"))
+                implementation(npm("@comunica/actor-dereference-fallback", "2.6.8"))
+                implementation(npm("@comunica/actor-dereference-http", "2.6.8"))
+                implementation(npm("@comunica/actor-dereference-rdf-parse", "2.6.8"))
+                implementation(npm("@comunica/actor-hash-bindings-sha1", "2.6.8"))
+                implementation(npm("@comunica/actor-http-fetch", "2.6.8"))
+                implementation(npm("@comunica/actor-http-proxy", "2.6.8"))
+                implementation(npm("@comunica/actor-http-wayback", "2.6.8"))
+                implementation(npm("@comunica/actor-init-query", "2.6.8"))
+                implementation(npm("@comunica/actor-optimize-query-operation-bgp-to-join", "2.6.8"))
+                implementation(npm("@comunica/actor-optimize-query-operation-join-bgp", "2.6.8"))
+                implementation(npm("@comunica/actor-optimize-query-operation-join-connected", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-ask", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-bgp-join", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-construct", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-describe-subject", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-distinct-hash", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-extend", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-filter-sparqlee", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-from-quad", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-group", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-join", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-leftjoin", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-minus", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-nop", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-orderby-sparqlee", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-path-alt", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-path-inv", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-path-link", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-path-nps", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-path-one-or-more", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-path-seq", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-path-zero-or-more", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-path-zero-or-one", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-project", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-quadpattern", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-reduced-hash", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-service", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-slice", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-sparql-endpoint", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-union", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-update-add-rewrite", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-update-clear", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-update-compositeupdate", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-update-copy-rewrite", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-update-create", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-update-deleteinsert", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-update-drop", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-update-load", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-update-move-rewrite", "2.6.8"))
+                implementation(npm("@comunica/actor-query-operation-values", "2.6.8"))
+                implementation(npm("@comunica/actor-query-parse-graphql", "2.6.8"))
+                implementation(npm("@comunica/actor-query-parse-sparql", "2.6.8"))
+                implementation(npm("@comunica/actor-query-result-serialize-json", "2.6.8"))
+                implementation(npm("@comunica/actor-query-result-serialize-rdf", "2.6.8"))
+                implementation(npm("@comunica/actor-query-result-serialize-simple", "2.6.8"))
+                implementation(npm("@comunica/actor-query-result-serialize-sparql-csv", "2.6.8"))
+                implementation(npm("@comunica/actor-query-result-serialize-sparql-json", "2.6.8"))
+                implementation(npm("@comunica/actor-query-result-serialize-sparql-tsv", "2.6.8"))
+                implementation(npm("@comunica/actor-query-result-serialize-sparql-xml", "2.6.8"))
+                implementation(npm("@comunica/actor-query-result-serialize-stats", "2.6.8"))
+                implementation(npm("@comunica/actor-query-result-serialize-table", "2.6.8"))
+                implementation(npm("@comunica/actor-query-result-serialize-tree", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-join-entries-sort-cardinality", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-join-inner-hash", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-join-inner-multi-bind", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-join-inner-multi-empty", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-join-inner-multi-smallest", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-join-inner-nestedloop", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-join-inner-none", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-join-inner-single", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-join-inner-symmetrichash", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-join-minus-hash", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-join-minus-hash-undef", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-join-optional-bind", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-join-optional-nestedloop", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-join-selectivity-variable-counting", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-metadata-all", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-metadata-extract-allow-http-methods", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-metadata-extract-hydra-controls", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-metadata-extract-hydra-count", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-metadata-extract-hydra-pagesize", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-metadata-extract-patch-sparql-update", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-metadata-extract-put-accepted", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-metadata-extract-request-time", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-metadata-extract-sparql-service", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-metadata-primary-topic", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-parse-html", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-parse-html-microdata", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-parse-html-rdfa", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-parse-html-script", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-parse-jsonld", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-parse-n3", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-parse-rdfxml", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-parse-shaclc", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-parse-xml-rdfa", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-resolve-hypermedia-links-next", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-resolve-hypermedia-links-queue-fifo", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-resolve-hypermedia-none", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-resolve-hypermedia-qpf", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-resolve-hypermedia-sparql", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-resolve-quad-pattern-federated", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-resolve-quad-pattern-hypermedia", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-resolve-quad-pattern-rdfjs-source", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-resolve-quad-pattern-string-source", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-serialize-jsonld", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-serialize-n3", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-serialize-shaclc", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-update-hypermedia-patch-sparql-update", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-update-hypermedia-put-ldp", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-update-hypermedia-sparql", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-update-quads-hypermedia", "2.6.8"))
+                implementation(npm("@comunica/actor-rdf-update-quads-rdfjs-store", "2.6.8"))
+                implementation(npm("@comunica/bus-http-invalidate", "2.6.8"))
+                implementation(npm("@comunica/bus-query-operation", "2.6.8"))
+                implementation(npm("@comunica/config-query-sparql", "2.6.0"))
+                implementation(npm("@comunica/core", "2.6.8"))
+                implementation(npm("@comunica/logger-void", "2.6.8"))
+                implementation(npm("@comunica/mediator-all", "2.6.8"))
+                implementation(npm("@comunica/mediator-combine-pipeline", "2.6.8"))
+                implementation(npm("@comunica/mediator-combine-union", "2.6.8"))
+                implementation(npm("@comunica/mediator-join-coefficients-fixed", "2.6.8"))
+                implementation(npm("@comunica/mediator-number", "2.6.8"))
+                implementation(npm("@comunica/mediator-race", "2.6.8"))
+                implementation(npm("@comunica/runner", "2.6.8"))
+                implementation(npm("@comunica/runner-cli", "2.6.8"))
+                implementation(npm("@comunica/actor-abstract-mediatyped", "2.6.8"))
+                implementation(npm("@comunica/actor-abstract-parse", "2.6.8"))
+                implementation(npm("@comunica/actor-abstract-path", "2.6.8"))
+                implementation(npm("@comunica/bus-context-preprocess", "2.6.8"))
+                implementation(npm("@comunica/bus-dereference", "2.6.8"))
+                implementation(npm("@comunica/bus-dereference-rdf", "2.6.8"))
+                implementation(npm("@comunica/bus-hash-bindings", "2.6.8"))
+                implementation(npm("@comunica/bus-http", "2.6.8"))
+                implementation(npm("@comunica/bus-init", "2.6.8"))
+                implementation(npm("@comunica/bus-optimize-query-operation", "2.6.8"))
+                implementation(npm("@comunica/bus-query-parse", "2.6.8"))
+                implementation(npm("@comunica/bus-query-result-serialize", "2.6.8"))
+                implementation(npm("@comunica/bus-rdf-join", "2.6.8"))
+                implementation(npm("@comunica/bus-rdf-join-entries-sort", "2.6.8"))
+                implementation(npm("@comunica/bus-rdf-join-selectivity", "2.6.8"))
+                implementation(npm("@comunica/bus-rdf-metadata", "2.6.8"))
+                implementation(npm("@comunica/bus-rdf-metadata-extract", "2.6.8"))
+                implementation(npm("@comunica/bus-rdf-parse", "2.6.8"))
+                implementation(npm("@comunica/bus-rdf-parse-html", "2.6.8"))
+                implementation(npm("@comunica/bus-rdf-resolve-hypermedia", "2.6.8"))
+                implementation(npm("@comunica/bus-rdf-resolve-hypermedia-links", "2.6.8"))
+                implementation(npm("@comunica/bus-rdf-resolve-hypermedia-links-queue", "2.6.8"))
+                implementation(npm("@comunica/bus-rdf-resolve-quad-pattern", "2.6.8"))
+                implementation(npm("@comunica/bus-rdf-serialize", "2.6.8"))
+                implementation(npm("@comunica/bus-rdf-update-hypermedia", "2.6.8"))
+                implementation(npm("@comunica/bus-rdf-update-quads", "2.6.8"))
+                implementation(npm("@comunica/context-entries", "2.6.8"))
+                implementation(npm("@comunica/logger-pretty", "2.6.8"))
+                implementation(npm("@comunica/mediatortype-accuracy", "2.6.8"))
+                implementation(npm("@comunica/mediatortype-httprequests", "2.6.8"))
+                implementation(npm("@comunica/mediatortype-join-coefficients", "2.6.8"))
+                implementation(npm("@comunica/mediatortype-time", "2.6.8"))
+                implementation(npm("@comunica/types", "2.6.8"))
+
+                implementation(npm("@comunica/query-sparql", "2.6.8"))
+                implementation(npm("@incremunica/config-query-sparql-incremental", "1.0.3"))
+                implementation(npm("@incremunica/incremental-rdf-streaming-store", "^1.0.0"))
+                implementation(npm("@incremunica/incremental-types", "^1.0.0"))
+                implementation(npm("@incremunica/query-sparql-incremental", "1.0.3"))
+                implementation(npm("streamify-array", "^1.0.1"))
+
                 implementation(npm("n3", "1.16.4"))
-                val util = projectDir.resolve("src/jsMain/js/build/ldests_compat-1.0.0.tgz").canonicalFile
-                implementation(npm("ldests_compat", "file:$util"))
             }
         }
 
@@ -51,32 +215,5 @@ kotlin {
             }
         }
 
-    }
-}
-
-fun buildCompatPackage() {
-    // task to build the JS base code
-    val root = project.rootDir
-    if (!File("$root/shared/src/jsMain/js/build/ldests_compat-1.0.0.tgz").exists()) {
-        val buildJsCompatTask = tasks.create("buildJsCompatTask", Exec::class.java) {
-            doFirst { mkdir("$root/shared/src/jsMain/js/build") }
-            workingDir = File("$root/shared/src/jsMain/js")
-            commandLine = listOf("npm", "pack", "--pack-destination", "./build")
-        }
-        project.tasks.getByName("compileKotlinJs").dependsOn(buildJsCompatTask)
-        // task to integrate incremunica
-        tasks.create("configureIncremunicaEngine", Exec::class.java) {
-            val lib = File("${workingDir.absolutePath}/" + File("src/jsMain/js/lib"))
-            if (!File("$lib/incremunica/").exists()) {
-                buildJsCompatTask.dependsOn(this)
-                exec {
-                    workingDir = lib
-                    workingDir.createDirectory()
-                    commandLine("git", "clone", "https://github.com/maartyman/incremunica.git")
-                }
-            }
-            workingDir = File("$lib/incremunica")
-            commandLine("yarn", "install")
-        }
     }
 }

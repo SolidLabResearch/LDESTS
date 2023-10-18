@@ -18,3 +18,15 @@ actual class LocalResource private constructor(
     }
 
 }
+
+actual class StreamingResource actual constructor(): TripleProvider {
+
+    actual fun add(triple: Triple) {
+        TODO()
+    }
+
+    actual fun close() {
+        TODO()
+    }
+
+}

@@ -1,5 +1,6 @@
 package be.ugent.idlab.predict.ldests.rdf
 
+import be.ugent.idlab.predict.ldests.lib.rdf.IncremunicaStreamingStore
 import be.ugent.idlab.predict.ldests.lib.rdf.N3Store
 import be.ugent.idlab.predict.ldests.util.log
 import be.ugent.idlab.predict.ldests.util.readFile
@@ -26,6 +27,22 @@ actual class LocalResource private constructor(
 
         actual fun wrap(buffer: TripleStore) = LocalResource(data = buffer)
 
+    }
+
+}
+
+actual class StreamingResource(
+    internal val stream: IncremunicaStreamingStore
+): TripleProvider {
+
+    actual constructor(): this(stream = IncremunicaStreamingStore())
+
+    actual fun add(triple: Triple) {
+        stream.add(triple)
+    }
+
+    actual fun close() {
+        stream.close()
     }
 
 }

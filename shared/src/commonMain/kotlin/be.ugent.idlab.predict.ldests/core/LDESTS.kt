@@ -1,12 +1,11 @@
 package be.ugent.idlab.predict.ldests.core
 
-import be.ugent.idlab.predict.ldests.rdf.LocalResource
-import be.ugent.idlab.predict.ldests.rdf.NamedNodeTerm
-import be.ugent.idlab.predict.ldests.rdf.Triple
-import be.ugent.idlab.predict.ldests.rdf.TripleStore
+import be.ugent.idlab.predict.ldests.rdf.*
 import be.ugent.idlab.predict.ldests.util.log
-import be.ugent.idlab.predict.ldests.util.warn
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -22,11 +21,22 @@ class LDESTS private constructor(
     // lock used to guarantee that `flush`ing only occurs when there are no additions being made,
     //  and additions are never overlapping
     private val lock = Mutex()
+    // internal stream instance used to gather all "loose" input triples and insert them directly accordingly
+    private val input = StreamingResource()
+    private lateinit var inputJob: Job
 
     suspend fun init() {
         publishers.forEach { it.subscribe(buffer) }
         log("Flushing publishers for the first time")
         buffer.flush()
+        log("Attaching the input stream instance to the stream")
+        // starting this job in another separate scope, as the `init()` block is called within the builder's context and
+        //  not the actual stream's lifetime
+        inputJob = CoroutineScope(Dispatchers.Unconfined).launch {
+            with (stream) {
+                input.insert()
+            }
+        }
     }
 
     suspend fun append(filename: String) {
@@ -43,16 +53,14 @@ class LDESTS private constructor(
      * Inserts data as a streaming input source
      */
     fun insert(data: Triple) {
-        warn("`insert(Triple)`: This method is currently not implemented. Data has not been added")
-//        input.add(data.streamify())
+        input.add(data)
     }
 
     /**
      * Inserts multiple data entries as a streaming input source
      */
     fun insert(data: Iterable<Triple>) {
-        warn("`insert(Iterable<Triple>)`: This method is currently not implemented. Data has not been added")
-//        input.add(data.streamify())
+        data.forEach { input.add(it) }
     }
 
     /**
@@ -65,14 +73,9 @@ class LDESTS private constructor(
         }
     }
 
-    suspend fun query(
-        publisher: Publisher,
-        constraints: Map<NamedNodeTerm, Iterable<NamedNodeTerm>>,
-        range: LongRange = 0 until Long.MAX_VALUE
-    ): Flow<Triple> {
+    suspend fun query(publisher: Publisher, query: Query, callback: (Binding) -> Unit) {
         // TODO: require a compatibility check similar to onAttach
-        log("Executing a query for `${publisher::class.simpleName}` with ${constraints.size} constraint(s) and time range ${range.first} - ${range.last}")
-        return stream.query(publisher, constraints, range)
+        return stream.query(publisher, query, callback)
     }
 
     suspend fun flush() {
@@ -86,9 +89,12 @@ class LDESTS private constructor(
     }
 
     suspend fun close() {
-        warn("Close called, waiting until the last job has finished")
+        log("Close called, waiting until the last job has finished")
         lock.withLock {
-            warn("Close: stopping all publishers.")
+            log("Ending manual triple insertion streams")
+            input.close()
+            inputJob.join()
+            log("Close: stopping all publishers.")
             publishers.forEach { it.close() }
             log("Stream has been closed.")
         }

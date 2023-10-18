@@ -15,6 +15,7 @@ actual class Binding(internal val values: Map<String, Term>) {
 actual operator fun Binding.get(variable: String) = values[variable]
 
 
-actual suspend fun TripleProvider.query(query: Query, callback: (Binding) -> Unit) {
+actual suspend fun TripleProvider.query(sparql: String, callback: (Binding) -> Unit) {
+    // TODO: the use of `Query(sparql)` can be used to make optimisations in approach
     TODO("Not yet implemented")
 }

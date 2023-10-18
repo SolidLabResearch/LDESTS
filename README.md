@@ -7,7 +7,7 @@ This tool is developed using [Kotlin Multiplatform](https://kotlinlang.org/docs/
 **Notice:** building from source has only been tested on **Linux**. While the build process should work for any platform capable of using Gradle, other platforms have not been tested. If you come across an issue building the library from source, be sure to let us know by creating an [issue](https://github.com/SolidLabResearch/LDESTS/issues/new).
 ### JS/TS on Node.js
 #### NPM
-Currently, **no NPM releases are available** due to the use of unreleased dependencies and unusual project hierarchy. If you want to integrate LDESTS in your own project right now, you have to build the library from source.
+Currently, **no NPM releases are available**, but are planned. If you want to integrate LDESTS in your own project right now, you have to build the library from source.
 #### From source
 The build process requires the commands `git`, `yarn` and `npm` to function, so make sure these are properly installed and configured before proceeding.\
 Begin by cloning the repository to a known location:
@@ -62,28 +62,24 @@ If you no longer need your stream object, you can `close` the stream, allowing a
 await stream.close();
 ```
 #### Inserting data
-A stream can append new data through various sources:
+A stream can append new data through (single) triple or entire file insertion:
 ```ts
-stream.insert(triple); // adds a single triple "asynchronously" to the input stream
-await stream.insertAsStore(triples); // adds an array of triples, converted to a store to be processed as a whole, and `await`s until finished
-await stream.insertStore(store); // adds an entire store, to be processed as a whole, and `await`s until finished
-await stream.append("path/to/file.nt"); // adds an entire file, to be processed as a whole, and `await`s until finished
+stream.insertTriple(triple); // adds a single triple "asynchronously" to the input stream
+await stream.insertFile("path/to/file.nt"); // adds an entire RDF file to the stream and `await`s until finished
 ```
-It is possible for the resulting stream to not reflect new data *yet*. To make sure the stream has these new additions available to consumers, the stream has to be flushed:
+It is possible for the resulting stream to not reflect new data *yet*. To make sure the stream has these new additions available to consumers, the operations have to be `await`ed and the stream has to be flushed:
 ```ts
 await stream.flush(); // ensures all additional data is processed and published before it returns
 ```
 #### Consuming a stream
-First, the stream instance has to be created (as seen [here](#creating-a-stream)). Later, it will be possible to [automatically infer the stream's settings](#roadmapfuture-work) (including the shape) when using a single publisher. Currently, only Solid pods are compatible with querying. Querying is possible through callbacks with `query` or directly as an `N3Store` by using `queryAsStore`:
+First, the stream instance has to be created (as seen [here](#creating-a-stream)). Later, it will be possible to [automatically infer the stream's settings](#roadmapfuture-work) (including the shape) when using a single publisher. Currently, only Solid pods are compatible with querying.
 ```ts
-await stream.query(
-    { type: PublisherType.Solid, url: "http://solid.local" } as SolidPublisherConfig, // looks for "myStream" as defined above on "solid.local"
-    (triple) => console.log(`Got object ${triple.object.value}`), // logging the received triple's objects
-    { "myFirstConstraint": ["myConstantValue", "..."] } // adding extra constraints to the data
-    // extra time constraints can be added here as well
-);
+const pod = { type: PublisherType.Solid, url: "http://solid.local" } as SolidPublisherConfig;
+const query = "SELECT * WHERE { ?s ?p ?o . }";
+// looks for "myStream" as defined by the creation of `stream` above on the pod "solid.local"
+await stream.query(pod, query, (binding) => { callback(binding) });
 ```
-By providing constraints to the call, the stream can filter the available data so only relevant fragments are considered. Time constraints can also be added as a 4th and 5th parameter. `await`ing the result of `query` is not required, but can help with flow control.\
+Later, time and property constraints found in the provided query will be used to filter the available data so only relevant fragments are retrieved. `await`ing the result of `query` is not required, but can help with flow control.\
 **Note:** as these triples are regenerated from the compressed stream, the exact subject URIs are lost. Every sample's subject is still unique throughout the query, however.
 ## How it works
 The stream's data model describes every possible variation of the incoming data. By providing a property or a set of properties the stream has to fragment the incoming data with, all possible fixed data models can be generated. Every resulting model gets its own data stream. These data streams are being appended to when incoming data matches that stream's model.\
@@ -93,12 +89,11 @@ Rereading this data also heavily uses the data models: by first analysing the re
 Current features and changes are either planned/possible (depending on requirements/demand, in no particular order):
 - Support for the JVM (& Android)
 - Automatic shape generation using samples from the data streams
-- SPARQL querying support on LDESTS streams
 - Inferring stream properties
 - Supporting variable stream layout on a per-publisher basis
 - Manual publisher management, including more granular control over their configurations
 - Support for custom publisher implementations
-- Proper (automated) releases for Node.js JS/TS on NPM (currently not yet possible [as noted above](#npm))
+- Proper (automated) releases for Node.js JS/TS on NPM
 ## Credits
 This research was partly funded the Flemish Government under the “Onderzoeksprogramma
 Artificiële Intelligentie (AI) Vlaanderen” programme, the SolidLab Vlaanderen project (Flemish
@@ -106,6 +101,6 @@ Government, EWI and RRF project VV023/10) and the FWO Project FRACTION (Nr. G086
 The Node.js JS/TS integration uses
 - [RDFJS/N3](https://github.com/rdfjs/N3.js/) for everything related to RDF storage (both in-memory and turtle files);
 - [Comunica](https://github.com/comunica/comunica/) for querying triple sources, such as in-memory stores and Solid pods, through SPARQL queries;
-- [Incremunica](https://github.com/maartyman/incremunica/) (**currently unreleased**) for querying ongoing RDF streams, created by manual insertion, through SPARQL queries
+- [Incremunica](https://github.com/maartyman/incremunica/) for querying ongoing RDF streams, created by manual insertion, through SPARQL queries
 
 under the hood.
