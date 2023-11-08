@@ -155,6 +155,7 @@ class Stream private constructor(
                         // TODO: apply query specific optimisations with `shape.decode`
                         data?.let { rules.shape.decode(
                             publisher = publisher,
+                            fragmentId = name,
                             range = 0L..Long.MAX_VALUE,
                             constraints = emptyMap(),
                             source = it.asIterable()

@@ -308,6 +308,7 @@ class Shape private constructor(
 
     fun decode(
         publisher: Publisher,
+        fragmentId: String,
         range: LongRange,
         constraints: Map<NamedNodeTerm, Iterable<NamedNodeTerm>>,
         source: Iterable<Char>
@@ -343,7 +344,7 @@ class Shape private constructor(
             val relevant = checks.all { check -> check(data) }
             if (!relevant) return
             // processing the data & sending it through
-            data.decode(publisher.context, j++).forEach { emit(it) }
+            data.decode(fragmentId = fragmentId, publisher.context, j++).forEach { emit(it) }
         }
         while (iter.hasNext()) {
             when (val c = iter.next()) {
@@ -379,10 +380,11 @@ class Shape private constructor(
      *  the variable triples from the resource itself
      */
     private fun List<String>.decode(
+        fragmentId: String, // TODO: its possible that this can be derived from the provided context
         context: RDFBuilder.Context,
         id: Int
     ) = buildTriples(context) {
-        val subject = with (context) { "Sample_$id".absolutePath }
+        val subject = with (context) { "${fragmentId}_Sample_$id".absolutePath }
         +subject has RDF.type being typeIdentifier.value
         +subject has sampleIdentifier.predicate being Instant.fromEpochMilliseconds(first().toLong()).asLiteral()
         constants.forEach { (predicate, constant) ->
