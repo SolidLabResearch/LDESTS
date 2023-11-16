@@ -1,5 +1,7 @@
 package be.ugent.idlab.predict.ldests.rdf
 
+import kotlinx.coroutines.flow.Flow
+
 expect class TripleStore() {
 
     val size: Int
@@ -27,6 +29,12 @@ expect class TripleStore() {
 
 operator fun TripleStore.Companion.invoke(path: String = "", block: RDFBuilder.() -> Unit) =
     TripleStore().apply { insert(context = RDFBuilder.Context(path = path), block) }
+
+suspend fun Flow<Triple>.toStore(): TripleStore {
+    val result = TripleStore()
+    collect { triple -> result.add(triple) }
+    return result
+}
 
 fun Array<Triple>.toStore() = TripleStore().apply { add(this@toStore) }
 

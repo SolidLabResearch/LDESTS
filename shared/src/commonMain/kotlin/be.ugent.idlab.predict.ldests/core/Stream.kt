@@ -9,6 +9,7 @@ import be.ugent.idlab.predict.ldests.util.*
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import kotlin.time.Duration
@@ -132,17 +133,15 @@ class Stream private constructor(
                 listOf(fragment)
             }
 
-    suspend fun query(
+    suspend fun fetch(
         publisher: Publisher,
-        query: Query,
-        callback: (Binding) -> Unit
-    ) {
-        // TODO: apply query specific optimisations with `getFragments`
-//        val fragments = getFragments(publisher = publisher, constraints = constraints, range = range)
+        constraints: Map<NamedNodeTerm, Iterable<NamedNodeTerm>> = mapOf(),
+        range: LongRange = 0L .. Long.MAX_VALUE
+    ): Flow<Triple> {
+        val fragments = getFragments(publisher = publisher, constraints = constraints, range = range)
         // getting the relevant fragments first, so only these get queried
-        val fragments = publisher.readFragmentData()
         log("Querying over fragments `${fragments.joinToString(", ") { it.name }}`")
-        coroutineScope {
+        return coroutineScope {
             fragments
                 .map { (name, _, rules) ->
                     async {
@@ -160,18 +159,22 @@ class Stream private constructor(
                             constraints = emptyMap(),
                             source = it.asIterable()
                         ) }
-//                        data?.let { rules.shape.decode(
-//                            publisher = publisher,
-//                            range = range,
-//                            constraints = constraints,
-//                            source = it.asIterable()
-//                        ) }
                     }
                 }
                 .awaitAll()
                 .filterNotNull()
                 .merge()
         }
+    }
+
+    suspend fun query(
+        publisher: Publisher,
+        query: Query,
+        callback: (Binding) -> Unit
+    ) {
+        // TODO: apply query specific optimisations to get the constraints
+        // TODO: use the query to get a range figured out for the `fetch`
+        fetch(publisher)
             .toAsyncResource()
             .query(query.sparql, callback)
     }
@@ -184,7 +187,7 @@ class Stream private constructor(
         // getting all relevant rules based on the provided constraints
         // TODO: this can later be replaced with a publisher based fetch so constraint sets based on a per-publisher basis
         //  can be properly respected
-        val relevant = rules.values.filter { it.shape.complies(constraints) }.map { it.name }
+        val relevant = rules.values.filter { it.shape.relevant(constraints) }.map { it.name }
         if (relevant.isEmpty()) {
             warn("The provided constraints resulted in no queryable constraint sets!")
             return listOf()

@@ -50,10 +50,30 @@ class LDESTSJS private constructor(
         parent.query(pub, Query(query), callback)
     }
 
+    @ExternalUse
+    fun read(
+        publisher: PublisherConfig,
+        /** lower epoch, in seconds, maybe later support for XSD **/
+        lower: String = "0",
+        /** upper epoch, in seconds, maybe later support for XSD **/
+        upper: String = Long.MAX_VALUE.toString(),
+        constraints: dynamic = undefined
+    ) = promise {
+        val pub = publisher.toPublisher() ?: return@promise null
+        parent.read(
+            publisher = pub,
+            range = lower.toLong() .. upper.toLong(),
+            constraints = parseConstraints(constraints)
+        ).store
+    }
+
     /** Helper methods **/
 
     // dynamic constraints: `predicate`: ["value1", "value2", ...]
     private fun parseConstraints(constraints: dynamic): Map<NamedNodeTerm, Iterable<NamedNodeTerm>> {
+        if (constraints == undefined) {
+            return mapOf()
+        }
         val c = mutableMapOf<NamedNodeTerm, Iterable<NamedNodeTerm>>()
         keys(constraints).forEach { predicate ->
             c[predicate.asNamedNode()] = (constraints[predicate]!! as Any).let { constraint ->

@@ -78,6 +78,15 @@ class LDESTS private constructor(
         return stream.query(publisher, query, callback)
     }
 
+    suspend fun read(
+        publisher: Publisher,
+        range: LongRange = 0L .. Long.MAX_VALUE,
+        constraints: Map<NamedNodeTerm, Iterable<NamedNodeTerm>> = mapOf()
+    ): TripleStore {
+        // TODO: require a compatibility check similar to onAttach
+        return stream.fetch(publisher, constraints, range).toStore()
+    }
+
     suspend fun flush() {
         log("Acquiring the lock prior to flushing the data")
         lock.withLock {

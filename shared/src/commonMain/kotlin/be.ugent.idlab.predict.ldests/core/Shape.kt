@@ -414,17 +414,20 @@ class Shape private constructor(
     }
 
     /**
-     * Validates compatibility of this shape with the provided constants
+     * Checks whether there's overlap between this shape and the provided constraints. If the constraints
+     *  reference C1 for P1, but the shape only contains C1' for P1, this method will return false
      */
-    fun complies(constraints: Map<NamedNodeTerm, Iterable<NamedNodeTerm>>): Boolean {
+    fun relevant(constraints: Map<NamedNodeTerm, Iterable<NamedNodeTerm>>): Boolean {
         if (constraints.keys.any { it !in properties }) {
             return false
         }
-        return constraints.all { (property, value) ->
+        return constraints.all { (property, allowed) ->
             (properties[property] as? ConstantProperty)
                 ?.values
-                ?.let { values ->
-                    value.all { value -> value in values }
+                ?.let { available ->
+                    // it complies if at least one of the allowed constraints is present in the
+                    //  available values
+                    allowed.any { allowed -> allowed in available }
                 } ?: false
         }
     }
