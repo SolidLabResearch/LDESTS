@@ -6,9 +6,7 @@ import be.ugent.idlab.predict.ldests.rdf.TripleStore
 
 class MemoryPublisher: Publisher() {
 
-    override val context = RDFBuilder.Context(
-        path = ""
-    )
+    override val context = RDFBuilder.EmptyContext
 
     val buffer = TripleStore()
 

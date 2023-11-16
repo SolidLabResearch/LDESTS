@@ -1,9 +1,17 @@
 package be.ugent.idlab.predict.ldests.rdf
 
+import kotlin.jvm.JvmInline
+
 class RDFBuilder(
     val context: Context,
     private val onTripleAdded: (subject: Term, predicate: Term, `object`: Any /* either Blank, Term or List */) -> Unit
 ) {
+
+    companion object {
+
+        val EmptyContext = Context(path = "")
+
+    }
 
     data class Context(
         val path: String
@@ -27,12 +35,14 @@ class RDFBuilder(
         onTripleAdded(this, predicate, `object`)
     }
 
+    @JvmInline
     value class Subject(private val callback: (predicate: NamedNodeTerm, `object`: Any) -> Unit) {
 
         infix fun has(predicate: NamedNodeTerm) = SubjectPredicate { callback(predicate, it) }
 
     }
 
+    @JvmInline
     value class SubjectPredicate(private val callback: (`object`: Any) -> Unit) {
 
         infix fun being(literal: Int) = callback(literal.asLiteral())
@@ -51,6 +61,7 @@ class RDFBuilder(
 
     }
 
+    @JvmInline
     value class Blank private constructor(internal val data: Map<NamedNodeTerm, Any /* Term, List or Blank */>) {
 
         companion object {
@@ -77,6 +88,7 @@ class RDFBuilder(
 
     }
 
+    @JvmInline
     value class List internal constructor(internal val data: kotlin.collections.List<Any>)
 
     fun blank(block: Blank.Scope.() -> Unit): Blank {

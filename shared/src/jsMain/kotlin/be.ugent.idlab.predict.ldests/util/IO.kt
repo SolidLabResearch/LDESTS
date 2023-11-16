@@ -71,7 +71,8 @@ actual suspend fun readFile(filename: String): String = suspendCoroutine { conti
         filename = filename
     ) { err, data ->
         if (data != null) {
-            continuation.resume(data)
+            // as the regular `data` is suddenly an object (probably being boxed here?), the JS `toString()` is crucial
+            continuation.resume(js("data.toString()"))
         } else {
             continuation.resumeWithException(err ?: RuntimeException())
         }

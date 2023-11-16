@@ -19,7 +19,7 @@ actual class LocalResource private constructor(
                 val turtle = readFile(filepath)
                 TripleStore(N3Store(/* Empty initial store */)).apply {
                     // do we need a path for local files?
-                    insert(context = RDFBuilder.Context(path = ""), turtle = turtle)
+                    insert(context = RDFBuilder.EmptyContext, turtle = turtle)
                     log("LocalResource", "Read ${store.size} triples!")
                 }
             }
